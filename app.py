@@ -1,63 +1,92 @@
 import streamlit as st
 from groq import Groq
 
-st.set_page_config(page_title="IA Assistant UPL", page_icon="🎓", layout="centered")
 
-try:
-    
-    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-    client = Groq(api_key=GROQ_API_KEY)
-except Exception as e:
-    st.error("Erreur : La clé API est introuvable dans secrets.toml.")
-    st.stop()
+st.set_page_config(
+    page_title="Assistant IA - Julien Banze Kandolo",
+    page_icon="🎓",
+    layout="centered"
+)
+
 
 st.markdown("""
     <style>
-    .stChatInputContainer { padding-bottom: 20px; }
-    .stChatMessage { border-radius: 15px; margin-bottom: 10px; }
+    /* Fond de la page */
+    .main { background-color: #f0f2f6; }
+    
+    /* Couleur du titre et des sous-titres */
+    h1, h3 { color: #1E3A8A; }
+    
+    /* Personnalisation de la barre de saisie (Chat Input) */
+    .stChatInput button {
+        background-color: #1E3A8A !important;
+        color: white !important;
+    }
+    
+    .stChatInput div[data-assistant="true"] {
+        border-color: blue !important;
+    }
+
+    /* Bulles de message */
+    .stChatMessage {
+        border-radius: 15px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🎓 Assistant IA Universitaire")
-st.write("Posez vos questions sur vos cours, vos mémoires ou votre orientation à l'UPL.")
+try:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+    client = Groq(api_key=GROQ_API_KEY)
+except Exception:
+    st.error("⚠️ Erreur : La clé API 'GROQ_API_KEY' est manquante dans les Secrets Streamlit.")
+    st.stop()
+
+
+st.title("🎓 Assistant IA Académique")
+st.markdown(f"Étudiant : Julien Banze Kandolo")
+st.info("📍 Université de Lubumbashi (UPL) | Faculté des Sciences")
+st.write("---")
 
 if "messages" not in st.session_state:
-    st.session_state.messages = []
+    st.session_state.messages = [
+        {
+            "role": "assistant", 
+            "content": "Bonjour ! Je suis l'assistant IA conçu par Julien Banze Kandolo. Je suis prêt à vous aider pour vos recherches à l'UPL. Que souhaitez-vous savoir ?"
+        }
+    ]
 
+#
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-if prompt := st.chat_input("Ex: Comment faire un plan de mémoire ?"):
+if prompt := st.chat_input("Je suis votre assistant academique..."):
+    
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
+   
     with st.chat_message("assistant"):
         try:
-            
-            chat_completion = client.chat.completions.create(
+            completion = client.chat.completions.create(
+                model="llama3-8b-8192",
                 messages=[
                     {
                         "role": "system", 
-  [22:05, 07/02/2026] JULIEN BANZE: on doit modifier de 49 à 64
-[22:05, 07/02/2026] JULIEN BANZE: try:
-            
-            chat_completion = client.chat.completions.create(
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": "Tu es un assistant IA utile et polyvalent, créé par Julien BANZE KANDOLO."
+                        "content": "Tu es l'assistant IA de Julien Banze Kandolo, étudiant à l'UPL. Tu es expert, poli et académique. Tu mentionnes Julien Banze Kandolo comme ton créateur."
                     },
-                    {"role": "user", "content": prompt}
+                    *[
+                        {"role": m["role"], "content": m["content"]}
+                        for m in st.session_state.messages
+                    ]
                 ],
-                model="llama-3.3-70b-versatile",
+                temperature=0.7,
             )
+            
+            reponse = completion.choices[0].message.content
+            st.markdown(reponse)
             st.session_state.messages.append({"role": "assistant", "content": reponse})
             
         except Exception as e:
-            st.error("Désolé, je rencontre une petite difficulté technique. Réessaye dans un instant.")
-
-st.markdown("---")
-
-st.markdown("© 2026 | Projet de fin d'études - Julien BANZE KANDOLO | Université Protestante de Lubumbashi")
+            st.error(f"Erreur : {str(e)}")
