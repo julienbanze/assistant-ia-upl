@@ -143,7 +143,7 @@ if "messages" not in st.session_state:
 if not st.session_state.messages:
     st.markdown("""
     <div class="welcome-container">
-        <h1 class="welcome-title">Bonjour Julien.</h1>
+        <h1 class="welcome-title">Je suis votre assistant.</h1>
         <h2 style='color: #8e918f; font-weight: 400; font-size: 2rem; margin-top: 10px;'>
             Comment puis-je t'aider dans tes projets aujourd'hui ?
         </h2>
@@ -182,3 +182,4 @@ if prompt := st.chat_input("Posez votre question scientifique ici..."):
             st.error(f"Erreur : {e}")
 
 st.markdown("""<div class="custom-footer">Développé par Julien Banze Kandolo • Assistant Académique JBK</div>""", unsafe_allow_html=True)
+
