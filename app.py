@@ -19,7 +19,7 @@ st.set_page_config(
 # --- STYLE CSS AVANCÉ (OPTIMISATION ESPACES ET MOBILE) ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap');
     
     html, body, [data-testid="stapp"], [data-testid="stHeader"] { 
         font-family: 'Google Sans', sans-serif;
@@ -105,22 +105,23 @@ st.markdown("""
         background-color: transparent !important;
     }
 
-    /* Signature Bas de page ultra-lisible */
+    /* Signature Bas de page - Taille augmentée et plus lisible */
     .footer-signature {
         position: fixed;
         bottom: 15px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(30, 31, 32, 0.8);
-        padding: 5px 20px;
-        border-radius: 20px;
-        border: 1px solid #444746;
+        background: rgba(30, 31, 32, 0.95);
+        padding: 8px 30px;
+        border-radius: 30px;
+        border: 1px solid #8ab4f8;
         color: #ffffff;
-        font-size: 0.85rem;
-        font-weight: 500;
+        font-size: 1.1rem; /* Taille augmentée */
+        font-weight: 700; /* Plus gras */
         z-index: 1000;
         white-space: nowrap;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        letter-spacing: 0.5px;
     }
 
     /* Ajustements Android/Mobile */
@@ -128,7 +129,11 @@ st.markdown("""
         .welcome-title { font-size: 2rem; }
         .block-container { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
         .stChatInputContainer { padding: 0 2% 1rem 2% !important; }
-        .footer-signature { font-size: 0.75rem; bottom: 10px; }
+        .footer-signature { 
+            font-size: 0.95rem; 
+            bottom: 10px; 
+            padding: 6px 20px;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -223,7 +228,7 @@ if prompt := st.chat_input("Écrivez ici..."):
         except Exception as e:
             st.error(f"Erreur : {e}")
 
-# Footer Signature - Lisible et bien placée
+# Footer Signature - Nom agrandi, en gras et très lisible
 st.markdown("""
     <div class="footer-signature">
         Julien Banze Kandolo • Assistant Académique JBK 🎓
