@@ -105,23 +105,15 @@ st.markdown("""
         background-color: transparent !important;
     }
 
-    /* Signature Bas de page - Taille augmentée et plus lisible */
-    .footer-signature {
-        position: fixed;
-        bottom: 15px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(30, 31, 32, 0.95);
-        padding: 8px 30px;
-        border-radius: 30px;
-        border: 1px solid #8ab4f8;
-        color: #ffffff;
-        font-size: 1.1rem; /* Taille augmentée */
-        font-weight: 700; /* Plus gras */
-        z-index: 1000;
-        white-space: nowrap;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    /* Zone du nom au-dessus de l'input */
+    .input-label-name {
+        text-align: center;
+        color: #8ab4f8;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: -10px;
         letter-spacing: 0.5px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
     }
 
     /* Ajustements Android/Mobile */
@@ -129,10 +121,9 @@ st.markdown("""
         .welcome-title { font-size: 2rem; }
         .block-container { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
         .stChatInputContainer { padding: 0 2% 1rem 2% !important; }
-        .footer-signature { 
-            font-size: 0.95rem; 
-            bottom: 10px; 
-            padding: 6px 20px;
+        .input-label-name { 
+            font-size: 0.95rem;
+            margin-bottom: -5px;
         }
     }
 </style>
@@ -186,6 +177,13 @@ for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
+# Signature au-dessus de la barre de saisie
+st.markdown("""
+    <div class="input-label-name">
+        Julien Banze Kandolo • Assistant Académique JBK 🎓
+    </div>
+""", unsafe_allow_html=True)
+
 # Zone de saisie utilisateur
 if prompt := st.chat_input("Écrivez ici..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -227,10 +225,3 @@ if prompt := st.chat_input("Écrivez ici..."):
             
         except Exception as e:
             st.error(f"Erreur : {e}")
-
-# Footer Signature - Nom agrandi, en gras et très lisible
-st.markdown("""
-    <div class="footer-signature">
-        Julien Banze Kandolo • Assistant Académique JBK 🎓
-    </div>
-""", unsafe_allow_html=True)
