@@ -1,3 +1,4 @@
+
 import streamlit as st
 try:
     from groq import Groq
@@ -7,6 +8,7 @@ except ImportError:
 from PIL import Image
 import io
 
+# --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
     page_title="Assistant Académique | Julien Banze Kandolo",
     page_icon="✨", 
@@ -14,6 +16,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# --- STYLE CSS AVANCÉ (OPTIMISATION ESPACES ET MOBILE) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&display=swap');
@@ -27,24 +30,31 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+
+    /* Réduction des marges supérieures de Streamlit */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+        max-width: 1000px;
+    }
     
     /* Sidebar Moderne */
     [data-testid="stSidebar"] { 
         background-color: #1e1f20 !important; 
         border-right: none;
-        padding-top: 1rem;
     }
     
-    /* Carte de Profil JBK */
+    /* Carte de Profil JBK - Plus compacte */
     .jbk-card {
-        padding: 24px;
+        padding: 15px;
         background: linear-gradient(145deg, #2b2c2e, #1e1f20);
-        border-radius: 20px;
+        border-radius: 15px;
         border: 1px solid #333537;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
+        text-align: center;
     }
-    .jbk-name { font-size: 1.15rem; font-weight: 500; color: white; margin:0; }
-    .jbk-role { font-size: 0.7rem; color: #8ab4f8; text-transform: uppercase; letter-spacing: 2px; font-weight: 500; }
+    .jbk-name { font-size: 1.1rem; font-weight: 500; color: white; margin:0; }
+    .jbk-role { font-size: 0.7rem; color: #8ab4f8; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500; }
 
     /* Boutons Style Google */
     .stButton>button {
@@ -52,55 +62,59 @@ st.markdown("""
         color: #e3e3e3;
         border: 1px solid #444746;
         border-radius: 50px;
-        padding: 10px 24px;
+        padding: 8px 20px;
         width: 100%;
         text-align: left;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        background-color: #333537;
-        border-color: #8ab4f8;
-        color: #8ab4f8;
     }
 
-    /* BARRE DE SAISIE FLOTTANTE (DESIGN GEMINI) */
+    /* BARRE DE SAISIE FLOTTANTE - AJUSTÉE POUR MOBILE */
     .stChatInputContainer {
-        padding: 0 10% 3rem 10% !important;
+        padding: 0 5% 1.5rem 5% !important;
         background-color: transparent !important;
     }
     .stChatInputContainer > div {
         background-color: #1e1f20 !important;
         border: 1px solid #444746 !important;
-        border-radius: 32px !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        border-radius: 28px !important;
     }
 
-    /* Welcome Header Animé */
+    /* Welcome Header Animé - Taille réduite pour mobile */
     .welcome-title {
         background: linear-gradient(90deg, #4285f4, #9b72cb, #d96570, #4285f4);
         background-size: 200% auto;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 3.8rem;
+        font-size: 2.5rem;
         font-weight: 500;
         animation: grad_flow 5s linear infinite;
+        margin-bottom: 0.5rem;
     }
     @keyframes grad_flow { 0% {background-position: 0% 50%;} 100% {background-position: 200% 50%;} }
 
-    /* Bulles de Chat */
+    /* Bulles de Chat - Espacements réduits */
     .stChatMessage {
         border-bottom: 1px solid #222 !important;
-        padding: 1.5rem 5% !important;
+        padding: 0.8rem 2% !important;
+        background-color: transparent !important;
+    }
+
+    /* Ajustements Android/Mobile */
+    @media (max-width: 768px) {
+        .welcome-title { font-size: 1.8rem; }
+        .block-container { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+        .stChatInputContainer { padding: 0 2% 1rem 2% !important; }
     }
 </style>
 """, unsafe_allow_html=True)
 
+# --- INITIALISATION API GROQ ---
 api_key = st.secrets.get("GROQ_API_KEY")
 if not api_key:
     st.error("🔑 GROQ_API_KEY manquante dans les Secrets Streamlit.")
     st.stop()
 client = Groq(api_key=api_key)
 
+# --- BARRE LATÉRALE (SIDEBAR) ---
 with st.sidebar:
     st.markdown(f"""
     <div class="jbk-card">
@@ -114,33 +128,35 @@ with st.sidebar:
         st.rerun()
     
     st.divider()
-    st.markdown("<p style='font-size:0.8rem; color:#8ab4f8; font-weight:500;'>OPTIONS AVANCÉES</p>", unsafe_allow_html=True)
-    voice_mode = st.toggle("Activer la réponse vocale")
+    st.markdown("<p style='font-size:0.75rem; color:#8ab4f8; font-weight:500;'>OPTIONS</p>", unsafe_allow_html=True)
+    voice_mode = st.toggle("Réponse vocale")
+    
+    uploaded_file = st.file_uploader("Document (Vision)", type=['png', 'jpg', 'pdf'])
     
     st.divider()
-    uploaded_file = st.file_uploader("Joindre un document (Analyse Vision)", type=['png', 'jpg', 'jpeg', 'pdf'])
-    
-    st.divider()
+    st.markdown(f"<div style='text-align: center; color: #8ab4f8; font-size: 0.8rem;'>Propriété de :<br><b>Julien Banze Kandolo</b></div>", unsafe_allow_html=True)
     st.caption("🚀 Assistant Académique JBK")
-    st.caption(f"👨‍💻 Par Julien Banze Kandolo")
-    st.caption("🧠 Modèle : Llama-3.3-70B")
 
+# --- MOTEUR DE CONVERSATION ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Écran d'accueil
 if not st.session_state.messages:
-    st.markdown("""
-    <div style='margin-top: 15vh; text-align: center;'>
-        <h1 class="welcome-title">Je suis votre assistant.</h1>
-        <h2 style='color: #8e918f; font-weight: 400; font-size: 1.8rem;'>Que souhaiteriez-vous savoir aujourd'hui ?</h2>
+    st.markdown(f"""
+    <div style='margin-top: 8vh; text-align: center;'>
+        <h1 class="welcome-title">Je suis votre assistant, Julien Banze Kandolo.</h1>
+        <p style='color: #8e918f; font-size: 1.2rem;'>Que souhaiteriez-vous savoir aujourd'hui ?</p>
     </div>
     """, unsafe_allow_html=True)
 
+# Affichage des messages
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-if prompt := st.chat_input("Posez votre question académique ici..."):
+# Zone de saisie utilisateur
+if prompt := st.chat_input("Écrivez ici..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
@@ -150,11 +166,11 @@ if prompt := st.chat_input("Posez votre question académique ici..."):
         full_res = ""
         
         try:
-            with st.spinner("Analyse de la requête..."):
+            with st.spinner("Réflexion..."):
                 completion = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
-                        {"role": "system", "content": "Tu es l'Assistant Académique de Julien Banze Kandolo. Tu es une IA experte et scientifique."},
+                        {"role": "system", "content": "Tu es l'Assistant Académique de Julien Banze Kandolo. IA experte et scientifique."},
                         *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
                     ],
                     stream=True,
@@ -168,17 +184,18 @@ if prompt := st.chat_input("Posez votre question académique ici..."):
                 
                 message_placeholder.markdown(full_res)
                 st.session_state.messages.append({"role": "assistant", "content": full_res})
-
+                
                 if voice_mode:
                     st.components.v1.html(f"""
                         <script>
-                            var msg = new SpeechSynthesisUtterance({repr(full_res[:300])});
+                            var msg = new SpeechSynthesisUtterance({repr(full_res[:250])});
                             msg.lang = 'fr-FR';
                             window.speechSynthesis.speak(msg);
                         </script>
                     """, height=0)
             
         except Exception as e:
-            st.error(f"Erreur de connexion : {e}")
+            st.error(f"Erreur : {e}")
 
-st.markdown("<div style='position:fixed; bottom:15px; left:50%; transform:translateX(-50%); color:#5f6368; font-size:0.75rem;'>Propulsé par Julien Banze Kandolo • Assistant Académique JBK</div>", unsafe_allow_html=True)
+# Footer (Pied de page)
+st.markdown("<div style='position:fixed; bottom:10px; left:50%; transform:translateX(-50%); color:#5f6368; font-size:0.7rem; white-space:nowrap;'>Propulsé par Julien Banze Kandolo • Assistant Académique JBK</div>", unsafe_allow_html=True)
