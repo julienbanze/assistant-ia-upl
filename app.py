@@ -3,7 +3,7 @@ import google.generativeai as genai
 import time
 from PIL import Image
 
-
+# --- CONFIGURATION INITIALE ---
 st.set_page_config(
     page_title="Assistant Intelligent Pro | Julien Banze Kandolo",
     page_icon="🎓", 
@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-
+# --- STYLE PERSONNALISÉ (CSS) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&display=swap');
@@ -36,21 +36,34 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-api_key = st.secrets.get("api_key")
+# --- GESTION ULTRA-ROBUSTE DE LA CLÉ API ---
+# On cherche la clé sous tous les noms possibles que vous auriez pu utiliser
+api_key = None
+possible_names = ["api_key", "GROQ_API_KEY", "API_KEY", "gemini_api_key", "google_api_key"]
+
+for name in possible_names:
+    if name in st.secrets:
+        api_key = st.secrets[name]
+        break
 
 if api_key:
     try:
         genai.configure(api_key=api_key)
     except Exception as e:
-        st.error(f"Erreur de configuration de la clé : {e}")
+        st.error(f"Erreur de configuration : {e}")
         st.stop()
 else:
-   
-    st.error("🔑 Configuration Requise : La clé API est manquante dans les serveurs Streamlit.")
-    st.info("Julien, assurez-vous d'avoir ajouté 'api_key' dans la section Secrets de votre dashboard Streamlit.")
+    # Si vraiment aucune clé n'est trouvée, on affiche un diagnostic complet
+    st.error("🔑 AUCUNE CLÉ DÉTECTÉE")
+    st.markdown(f"""
+    ### Julien, vérifiez vos secrets Streamlit :
+    1. Allez dans **Settings > Secrets**.
+    2. Assurez-vous d'avoir écrit : `api_key = "VOTRE_CLE_AIza"`
+    3. Noms testés par le code : {', '.join(possible_names)}
+    """)
     st.stop()
 
-
+# --- BARRE LATÉRALE ---
 with st.sidebar:
     st.markdown(f"""
     <div class="branding-box">
@@ -88,7 +101,7 @@ with st.sidebar:
                 except:
                     st.error("Audio momentanément indisponible.")
 
-
+# --- ZONE DE CHAT ---
 st.markdown("<h1 style='text-align: center;'>🎓 Assistant Expert JBK</h1>", unsafe_allow_html=True)
 
 if "messages" not in st.session_state: st.session_state.messages = []
@@ -107,7 +120,6 @@ if prompt := st.chat_input("Posez votre question..."):
         message_placeholder = st.empty()
         full_response = ""
         try:
-            
             model = genai.GenerativeModel(
                 model_name='gemini-1.5-pro',
                 system_instruction="Tu es Gemini 1.5 Pro, assistant de Julien Banze Kandolo. Niveau doctoral.",
@@ -130,4 +142,4 @@ if prompt := st.chat_input("Posez votre question..."):
         except Exception as e:
             st.error(f"Erreur d'exécution : {e}")
 
-st.markdown("<p style='text-align: center; color: #555; margin-top: 5rem;'>JBK Enterprise Edition</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #555; font-size: 0.7rem; margin-top: 5rem;'>JBK Enterprise Edition</p>", unsafe_allow_html=True)
