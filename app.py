@@ -1,194 +1,217 @@
 import streamlit as st
-from groq import Groq
-import json
-import datetime
+import google.generativeai as genai
+import time
+from PIL import Image
+import io
+import base64
 
 
 st.set_page_config(
-    page_title="Assistant IA Pro - Julien Banze Kandolo",
-    page_icon="🧠",
+    page_title="Assistant Intelligent | Julien Banze Kandolo",
+    page_icon="🎓", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-
 st.markdown("""
-    <style>
-    /* Fond général */
-    .stApp { background-color: #f8f9fa; }
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&display=swap');
     
-    /* Sidebar */
+    html, body, [data-testid="stapp"] {
+        font-family: 'Google Sans', sans-serif;
+    }
+
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
     [data-testid="stSidebar"] {
-        background-color: #1a202c; /* Sombre comme un IDE */
-        color: #e2e8f0;
+        background-color: #1e1f20;
+        border-right: 1px solid #333;
     }
-    [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        color: #63b3ed !important;
-    }
-    
-    /* Messages du chat */
-    .stChatMessage {
+
+    .branding-box {
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #2b2c2e 0%, #1e1f20 100%);
         border-radius: 12px;
-        padding: 12px;
-        margin-bottom: 10px;
+        border: 1px solid #444;
+        margin-bottom: 2rem;
     }
-    /* Message Assistant (Fond blanc) */
-    .stChatMessage[data-testid="stChatMessage"]:nth-child(odd) {
-        background-color: #ffffff;
-        border: 1px solid #e2e8f0;
+
+    .dev-name {
+        color: #8ab4f8;
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-bottom: 0px;
     }
-    /* Message Utilisateur (Fond bleu très clair) */
-    .stChatMessage[data-testid="stChatMessage"]:nth-child(even) {
-        background-color: #ebf8ff;
-        border: 1px solid #bee3f8;
+
+    .dev-title {
+        color: #9aa0a6;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
-    
-    /* Boutons */
-    .stButton button {
-        border-radius: 8px;
-        font-weight: bold;
+
+    .stChatMessage {
+        border-radius: 20px;
+        padding: 1.5rem;
+        max-width: 85%;
+        margin-bottom: 1rem;
     }
-    </style>
+
+    .stChatInputContainer {
+        padding-bottom: 2rem;
+        background-color: transparent !important;
+    }
+
+    .stButton>button {
+        width: 100%;
+        border-radius: 50px;
+        background-color: #333;
+        color: white;
+        border: 1px solid #444;
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #444;
+        border: 1px solid #8ab4f8;
+    }
+</style>
 """, unsafe_allow_html=True)
 
 
-try:
-    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-    client = Groq(api_key=GROQ_API_KEY)
-except Exception:
-    st.error("🚨 Erreur : Clé API manquante. Configurez `GROQ_API_KEY` dans les secrets.")
+apiKey = st.secrets["api_key"] if "api_key" in st.secrets else ""
+if apiKey:
+    genai.configure(api_key=apiKey)
+else:
+    st.error("Clé API manquante. Veuillez la configurer dans vos secrets Streamlit.")
     st.stop()
+
+
+system_instruction = (
+    "Tu es Gemini 1.5 Pro, un assistant polyvalent de haute précision et de niveau doctoral, conçu par l'expert Julien Banze Kandolo. "
+    "Tu dois aider dans tous les domaines : académique, codage expert, analyse d'image complexe et vie quotidienne. "
+    "Ton raisonnement doit être profond, tes sources doivent être suggérées quand c'est possible, et ton ton doit être celui d'un mentor professionnel."
+)
+
+generation_config = {
+    "temperature": 0.7, 
+    "top_p": 0.95,
+    "top_k": 64,
+    "max_output_tokens": 8192,
+}
+
+
+model = genai.GenerativeModel(
+    model_name='gemini-1.5-pro',
+    system_instruction=system_instruction,
+    generation_config=generation_config
+)
 
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "last_response" not in st.session_state:
+    st.session_state.last_response = ""
+
+def text_to_speech(text):
+    """Convertit le texte en audio via l'API Gemini TTS."""
+    try:
+        tts_model = genai.GenerativeModel(model_name="gemini-2.5-flash-preview-tts")
+        response = tts_model.generate_content(
+            contents=[{"parts": [{"text": f"Dis avec une voix chaleureuse et posée : {text}"}]}],
+            generation_config={
+                "response_modalities": ["AUDIO"],
+                "speech_config": {"voice_config": {"prebuilt_voice_config": {"voice_name": "Kore"}}}
+            }
+        )
+        audio_data = response.candidates[0].content.parts[0].inline_data.data
+        return audio_data
+    except Exception as e:
+        st.error(f"Erreur lors de la génération vocale : {e}")
+        return None
 
 
 with st.sidebar:
-    st.title("🎛️ Centre de Contrôle")
-    st.caption(f"Créé par **Julien Banze Kandolo** (UPL)")
-    st.markdown("---")
-
+    st.markdown(f"""
+    <div class="branding-box">
+        <p class="dev-title">Développeur & Architecte IA</p>
+        <p class="dev-name">Julien Banze Kandolo</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    st.subheader("🧠 Modèle d'IA")
-    model_option = st.selectbox(
-        "Choisir l'intelligence :",
-        (
-            "llama-3.3-70b-versatile", 
-            "llama-3.1-8b-instant",    
-            "mixtral-8x7b-32768"       
-        ),
-        index=0,
-        help="70b est plus intelligent pour le raisonnement. 8b est plus rapide."
-    )
-
+    st.markdown("<h2 style='color: white; font-size: 1.5rem;'>🎓 Gemini 1.5 Pro</h2>", unsafe_allow_html=True)
     
-    st.subheader("⚙️ Paramètres")
-    temperature = st.slider(
-        "Température (Créativité)", 
-        min_value=0.0, max_value=2.0, value=0.7, step=0.1,
-        help="0 = Précis et factuel. 1+ = Créatif et imprévisible."
-    )
-    max_tokens = st.slider(
-        "Longueur max réponse", 
-        min_value=256, max_value=4096, value=2048, step=256
-    )
-
-    st.subheader("🎭 Mode Assistant")
-    assistant_mode = st.radio(
-        "Style de réponse :",
-        ("🎓 Académique", "💻 Développeur", "✨ Créatif", "📝 Résumé")
-    )
-
-    st.markdown("---")
+    if st.button("＋ Nouvelle Session Académique"):
+        st.session_state.messages = []
+        st.session_state.chat_history = []
+        st.session_state.last_response = ""
+        st.rerun()
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🗑️ Effacer", type="primary"):
-            st.session_state.messages = []
-            st.rerun()
-    with col2:
-        
-        chat_str = json.dumps(st.session_state.messages, indent=2, ensure_ascii=False)
-        st.download_button(
-            label="💾 Sauver",
-            data=chat_str,
-            file_name=f"chat_upl_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.json",
-            mime="application/json"
-        )
+    st.divider()
+    
+    st.markdown("<p style='color: white;'>Vision & Documents</p>", unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("Analysez une image ou un graphique...", type=['png', 'jpg', 'jpeg'])
+    if uploaded_file:
+        st.image(uploaded_file, caption="Média chargé pour analyse Pro", use_container_width=True)
 
-system_prompts = {
-    "🎓 Académique": (
-        "Tu es un assistant universitaire expert créé par Julien Banze Kandolo. "
-        "Tes réponses doivent être rigoureuses, structurées, citer des sources si possible, "
-        "et utiliser un ton formel. Utilise LaTeX pour les maths."
-    ),
-    "💻 Développeur": (
-        "Tu es un expert en code (Python, C++, Java) créé par Julien Banze Kandolo. "
-        "Tes réponses doivent être techniques. Fournis toujours le code complet, optimisé et commenté. "
-        "Explique les bugs potentiels."
-    ),
-    "✨ Créatif": (
-        "Tu es un assistant créatif et inspirant. N'hésite pas à utiliser des métaphores, "
-        "un ton engageant et original. Tu as été créé par Julien."
-    ),
-    "📝 Résumé": (
-        "Ton but est de synthétiser l'information de manière ultra-concise. "
-        "Utilise des listes à puces. Va droit au but."
-    )
-}
-current_system_prompt = system_prompts[assistant_mode]
+    st.divider()
+    if st.session_state.last_response:
+        st.markdown("<p style='color: white;'>Accessibilité</p>", unsafe_allow_html=True)
+        if st.button("🔊 Écouter la réponse Pro"):
+            with st.spinner("Synthèse vocale en cours..."):
+            
+                audio_bytes = text_to_speech(st.session_state.last_response[:1000])
+                if audio_bytes:
+                    st.audio(audio_bytes, format="audio/wav")
 
 
-st.title("🤖 Assistant IA ")
-st.markdown(f"**Mode actuel :** `{assistant_mode}` | Modèle : `{model_option}`")
-
-
-if not st.session_state.messages:
-    st.info("👋 Bonjour ! Je suis prêt. Choisissez un mode dans la barre latérale et posez votre question.")
+st.markdown(f"""
+    <div style='text-align: center; margin-bottom: 2rem;'>
+        <h1 style='font-weight: 500; font-size: 2.2rem;'>🎓 Assistant Universitaire & Polyvalent</h1>
+        <p style='color: #9aa0a6;'>Intelligence de niveau Pro • Système conçu par Julien Banze Kandolo</p>
+    </div>
+""", unsafe_allow_html=True)
 
 for message in st.session_state.messages:
-    avatar = "🧑‍🎓" if message["role"] == "user" else "🧠"
-    with st.chat_message(message["role"], avatar=avatar):
+    with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-
-if prompt := st.chat_input("Je suis votre assistant pour vos rechercherches..."):
-    
+if prompt := st.chat_input("Posez votre question complexe ici..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="🧑‍🎓"):
+    with st.chat_message("user"):
         st.markdown(prompt)
 
-    
-    with st.chat_message("assistant", avatar="🧠"):
+    with st.chat_message("assistant"):
         message_placeholder = st.empty()
         full_response = ""
         
-    
-        api_messages = [{"role": "system", "content": current_system_prompt}]
-        
-        for m in st.session_state.messages[-10:]:
-            api_messages.append({"role": m["role"], "content": m["content"]})
-
         try:
-            stream = client.chat.completions.create(
-                model=model_option,
-                messages=api_messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=True,
-            )
+            inputs = [prompt]
+            if uploaded_file:
+                img = Image.open(uploaded_file)
+                inputs.append(img)
             
-            for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
-                    full_response += chunk.choices[0].delta.content
+          
+            chat = model.start_chat(history=st.session_state.chat_history)
+            response = chat.send_message(inputs, stream=True)
+            
+            for chunk in response:
+                if chunk.text:
+                    full_response += chunk.text
                     message_placeholder.markdown(full_response + "▌")
+                    time.sleep(0.01)
             
             message_placeholder.markdown(full_response)
+            
             st.session_state.messages.append({"role": "assistant", "content": full_response})
-
+            st.session_state.last_response = full_response
+            st.session_state.chat_history.append({"role": "user", "parts": [prompt]})
+            st.session_state.chat_history.append({"role": "model", "parts": [full_response]})
+            
         except Exception as e:
-            st.error(f"Erreur API : {e}")
+            st.error(f"Erreur de modèle Pro : {str(e)}")
 
-st.markdown("---")
-st.caption("Projet Académique | Université Protestante de Lubumbashi | IA & Recherche")
+st.markdown("<p style='text-align: center; color: #555; font-size: 0.7rem; margin-top: 5rem;'>Moteur Gemini 1.5 Pro | JBK Enterprise Edition | Assistant Académique Global</p>", unsafe_allow_html=True)
