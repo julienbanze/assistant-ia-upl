@@ -11,7 +11,7 @@ import io
 # --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
     page_title="Assistant Académique | Julien Banze Kandolo",
-    page_icon="✨", 
+    page_icon="🎓", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -78,18 +78,25 @@ st.markdown("""
         border-radius: 28px !important;
     }
 
-    /* Welcome Header Animé - Taille réduite pour mobile */
+    /* Welcome Header Animé */
     .welcome-title {
         background: linear-gradient(90deg, #4285f4, #9b72cb, #d96570, #4285f4);
         background-size: 200% auto;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 2.5rem;
+        font-size: 2.8rem;
         font-weight: 500;
         animation: grad_flow 5s linear infinite;
         margin-bottom: 0.5rem;
     }
     @keyframes grad_flow { 0% {background-position: 0% 50%;} 100% {background-position: 200% 50%;} }
+
+    /* Icône de diplôme */
+    .grad-icon {
+        font-size: 3rem;
+        margin-bottom: 10px;
+        display: block;
+    }
 
     /* Bulles de Chat - Espacements réduits */
     .stChatMessage {
@@ -98,11 +105,30 @@ st.markdown("""
         background-color: transparent !important;
     }
 
+    /* Signature Bas de page ultra-lisible */
+    .footer-signature {
+        position: fixed;
+        bottom: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(30, 31, 32, 0.8);
+        padding: 5px 20px;
+        border-radius: 20px;
+        border: 1px solid #444746;
+        color: #ffffff;
+        font-size: 0.85rem;
+        font-weight: 500;
+        z-index: 1000;
+        white-space: nowrap;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+
     /* Ajustements Android/Mobile */
     @media (max-width: 768px) {
-        .welcome-title { font-size: 1.8rem; }
+        .welcome-title { font-size: 2rem; }
         .block-container { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
         .stChatInputContainer { padding: 0 2% 1rem 2% !important; }
+        .footer-signature { font-size: 0.75rem; bottom: 10px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -134,7 +160,6 @@ with st.sidebar:
     uploaded_file = st.file_uploader("Document (Vision)", type=['png', 'jpg', 'pdf'])
     
     st.divider()
-    st.markdown(f"<div style='text-align: center; color: #8ab4f8; font-size: 0.8rem;'>Propriété de :<br><b>Julien Banze Kandolo</b></div>", unsafe_allow_html=True)
     st.caption("🚀 Assistant Académique JBK")
 
 # --- MOTEUR DE CONVERSATION ---
@@ -144,9 +169,10 @@ if "messages" not in st.session_state:
 # Écran d'accueil
 if not st.session_state.messages:
     st.markdown(f"""
-    <div style='margin-top: 8vh; text-align: center;'>
-        <h1 class="welcome-title">Je suis votre assistant, Julien Banze Kandolo.</h1>
-        <p style='color: #8e918f; font-size: 1.2rem;'>Que souhaiteriez-vous savoir aujourd'hui ?</p>
+    <div style='margin-top: 12vh; text-align: center;'>
+        <span class="grad-icon">🎓</span>
+        <h1 class="welcome-title">Je suis votre assistant.</h1>
+        <p style='color: #8e918f; font-size: 1.3rem;'>Que souhaiteriez-vous savoir aujourd'hui ?</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -197,5 +223,9 @@ if prompt := st.chat_input("Écrivez ici..."):
         except Exception as e:
             st.error(f"Erreur : {e}")
 
-# Footer (Pied de page)
-st.markdown("<div style='position:fixed; bottom:10px; left:50%; transform:translateX(-50%); color:#5f6368; font-size:0.7rem; white-space:nowrap;'>Propulsé par Julien Banze Kandolo • Assistant Académique JBK</div>", unsafe_allow_html=True)
+# Footer Signature - Lisible et bien placée
+st.markdown("""
+    <div class="footer-signature">
+        Julien Banze Kandolo • Assistant Académique JBK 🎓
+    </div>
+""", unsafe_allow_html=True)
