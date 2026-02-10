@@ -1,4 +1,3 @@
-
 import streamlit as st
 try:
     from groq import Groq
@@ -7,9 +6,7 @@ except ImportError:
     st.stop()
 from PIL import Image
 import io
-import time
 
-# --- CONFIGURATION DE LA PAGE ---
 st.set_page_config(
     page_title="Assistant Académique | Julien Banze Kandolo",
     page_icon="✨", 
@@ -17,7 +14,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- STYLE CSS AVANCÉ (EXPÉRIENCE GEMINI ULTIME) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&display=swap');
@@ -36,9 +32,10 @@ st.markdown("""
     [data-testid="stSidebar"] { 
         background-color: #1e1f20 !important; 
         border-right: none;
+        padding-top: 1rem;
     }
     
-    /* Carte JBK Premium */
+    /* Carte de Profil JBK */
     .jbk-card {
         padding: 24px;
         background: linear-gradient(145deg, #2b2c2e, #1e1f20);
@@ -46,7 +43,7 @@ st.markdown("""
         border: 1px solid #333537;
         margin-bottom: 2rem;
     }
-    .jbk-name { font-size: 1.1rem; font-weight: 500; color: white; margin:0; }
+    .jbk-name { font-size: 1.15rem; font-weight: 500; color: white; margin:0; }
     .jbk-role { font-size: 0.7rem; color: #8ab4f8; text-transform: uppercase; letter-spacing: 2px; font-weight: 500; }
 
     /* Boutons Style Google */
@@ -55,17 +52,18 @@ st.markdown("""
         color: #e3e3e3;
         border: 1px solid #444746;
         border-radius: 50px;
-        padding: 10px 20px;
+        padding: 10px 24px;
         width: 100%;
         text-align: left;
-        transition: 0.2s;
+        transition: 0.3s;
     }
     .stButton>button:hover {
         background-color: #333537;
         border-color: #8ab4f8;
+        color: #8ab4f8;
     }
 
-    /* Barre de Saisie Flottante */
+    /* BARRE DE SAISIE FLOTTANTE (DESIGN GEMINI) */
     .stChatInputContainer {
         padding: 0 10% 3rem 10% !important;
         background-color: transparent !important;
@@ -77,7 +75,7 @@ st.markdown("""
         box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     }
 
-    /* Welcome Text Gemini */
+    /* Welcome Header Animé */
     .welcome-title {
         background: linear-gradient(90deg, #4285f4, #9b72cb, #d96570, #4285f4);
         background-size: 200% auto;
@@ -85,35 +83,28 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         font-size: 3.8rem;
         font-weight: 500;
-        animation: grad 5s linear infinite;
+        animation: grad_flow 5s linear infinite;
     }
-    @keyframes grad { 0% {background-position: 0% 50%;} 100% {background-position: 200% 50%;} }
+    @keyframes grad_flow { 0% {background-position: 0% 50%;} 100% {background-position: 200% 50%;} }
 
-    /* Historique */
-    .history-item {
-        font-size: 0.85rem;
-        padding: 8px 12px;
-        color: #c4c7c5;
-        cursor: pointer;
-        border-radius: 8px;
+    /* Bulles de Chat */
+    .stChatMessage {
+        border-bottom: 1px solid #222 !important;
+        padding: 1.5rem 5% !important;
     }
-    .history-item:hover { background-color: #333537; }
-
 </style>
 """, unsafe_allow_html=True)
 
-# --- INITIALISATION API ---
 api_key = st.secrets.get("GROQ_API_KEY")
 if not api_key:
-    st.error("🔑 GROQ_API_KEY manquante.")
+    st.error("🔑 GROQ_API_KEY manquante dans les Secrets Streamlit.")
     st.stop()
 client = Groq(api_key=api_key)
 
-# --- SIDEBAR ---
 with st.sidebar:
-    st.markdown("""
+    st.markdown(f"""
     <div class="jbk-card">
-        <p class="jbk-role">Expert en Intelligence Artificielle</p>
+        <p class="jbk-role">Assistant Académique</p>
         <p class="jbk-name">Julien Banze Kandolo</p>
     </div>
     """, unsafe_allow_html=True)
@@ -123,55 +114,47 @@ with st.sidebar:
         st.rerun()
     
     st.divider()
-    st.markdown("<p style='font-size:0.8rem; color:#8ab4f8;'>HISTORIQUE RÉCENT</p>", unsafe_allow_html=True)
-    st.markdown("<div class='history-item'>💭 Analyse de données UPL</div>", unsafe_allow_html=True)
-    st.markdown("<div class='history-item'>💭 Recherche Algorithmie</div>", unsafe_allow_html=True)
-    
-    st.divider()
-    st.markdown("<p style='font-size:0.8rem; color:#8ab4f8;'>OUTILS AVANCÉS</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.8rem; color:#8ab4f8; font-weight:500;'>OPTIONS AVANCÉES</p>", unsafe_allow_html=True)
     voice_mode = st.toggle("Activer la réponse vocale")
-    search_mode = st.toggle("Mode recherche Web profond")
     
     st.divider()
-    uploaded_file = st.file_uploader("Analyser un document", type=['png', 'jpg', 'pdf'])
+    uploaded_file = st.file_uploader("Joindre un document (Analyse Vision)", type=['png', 'jpg', 'jpeg', 'pdf'])
+    
+    st.divider()
+    st.caption("🚀 Assistant Académique JBK")
+    st.caption(f"👨‍💻 Par Julien Banze Kandolo")
+    st.caption("🧠 Modèle : Llama-3.3-70B")
 
-# --- CHAT ENGINE ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if not st.session_state.messages:
     st.markdown("""
     <div style='margin-top: 15vh; text-align: center;'>
-        <h1 class="welcome-title">Bonjour Julien.</h1>
-        <h2 style='color: #8e918f; font-weight: 400; font-size: 1.8rem;'>Expert IA à votre service. Que voulez-vous accomplir ?</h2>
+        <h1 class="welcome-title">Je suis votre assistant.</h1>
+        <h2 style='color: #8e918f; font-weight: 400; font-size: 1.8rem;'>Que souhaiteriez-vous savoir aujourd'hui ?</h2>
     </div>
     """, unsafe_allow_html=True)
 
-# Affichage
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# Input
-if prompt := st.chat_input("Posez votre question scientifique..."):
+if prompt := st.chat_input("Posez votre question académique ici..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
-        placeholder = st.empty()
+        message_placeholder = st.empty()
         full_res = ""
         
         try:
-            with st.spinner("L'expert IA réfléchit..."):
-                system_msg = "Tu es l'Assistant Académique de Julien Banze Kandolo. IA experte et scientifique."
-                if search_mode:
-                    system_msg += " Simule une recherche web approfondie pour donner des sources précises."
-                
+            with st.spinner("Analyse de la requête..."):
                 completion = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
-                        {"role": "system", "content": system_msg},
+                        {"role": "system", "content": "Tu es l'Assistant Académique de Julien Banze Kandolo. Tu es une IA experte et scientifique."},
                         *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
                     ],
                     stream=True,
@@ -181,23 +164,21 @@ if prompt := st.chat_input("Posez votre question scientifique..."):
                     content = chunk.choices[0].delta.content
                     if content:
                         full_res += content
-                        placeholder.markdown(full_res + "▌")
+                        message_placeholder.markdown(full_res + "▌")
                 
-                placeholder.markdown(full_res)
+                message_placeholder.markdown(full_res)
                 st.session_state.messages.append({"role": "assistant", "content": full_res})
-                
-                # Fonctionnalité Vocale (Simulation TTS via HTML)
+
                 if voice_mode:
                     st.components.v1.html(f"""
                         <script>
-                            var msg = new SpeechSynthesisUtterance({repr(full_res[:200])});
+                            var msg = new SpeechSynthesisUtterance({repr(full_res[:300])});
                             msg.lang = 'fr-FR';
                             window.speechSynthesis.speak(msg);
                         </script>
                     """, height=0)
             
         except Exception as e:
-            st.error(f"Erreur : {e}")
+            st.error(f"Erreur de connexion : {e}")
 
-st.markdown("<div style='position:fixed; bottom:15px; left:50%; transform:translateX(-50%); color:#5f6368; font-size:0.75rem;'>Développé par Julien Banze Kandolo • Expert IA JBK</div>", unsafe_allow_html=True)
-
+st.markdown("<div style='position:fixed; bottom:15px; left:50%; transform:translateX(-50%); color:#5f6368; font-size:0.75rem;'>Propulsé par Julien Banze Kandolo • Assistant Académique JBK</div>", unsafe_allow_html=True)
