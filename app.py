@@ -14,11 +14,10 @@ st.set_page_config(
     page_icon="🎓"
 )
 
-# --- GESTION DE LA BASE DE DONNÉES SÉCURISÉE ---
+# --- GESTION DE LA BASE DE DONNÉES ---
 DB_FILE = 'jbk_data.db'
 
 def init_db():
-    """Initialise la table si elle n'existe pas."""
     try:
         conn = sqlite3.connect(DB_FILE, check_same_thread=False)
         c = conn.cursor()
@@ -27,13 +26,11 @@ def init_db():
         conn.commit()
         conn.close()
     except Exception:
-        # On ne bloque pas l'app si la DB échoue sur le cloud
         pass
 
 init_db()
 
 def save_to_db(role, content):
-    """Sauvegarde un message sans faire planter l'application."""
     try:
         with sqlite3.connect(DB_FILE, check_same_thread=False) as conn:
             c = conn.cursor()
@@ -41,11 +38,9 @@ def save_to_db(role, content):
                       (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), role, content))
             conn.commit()
     except Exception:
-        # Si Streamlit Cloud refuse l'écriture, on ignore silencieusement
         pass
 
-# --- CONFIGURATION API GEMINI ---
-# On récupère la clé depuis les Secrets Streamlit
+# --- CONFIGURATION API ---
 api_key = st.secrets.get("api_key")
 
 if api_key:
@@ -65,7 +60,6 @@ with st.sidebar:
     
     st.divider()
     
-    # Zone PDF pour le RAG
     st.subheader("📚 Documents de cours")
     uploaded_pdf = st.file_uploader("Charger un Syllabus (PDF)", type=['pdf'])
     pdf_context = ""
@@ -74,10 +68,9 @@ with st.sidebar:
             reader = PyPDF2.PdfReader(uploaded_pdf)
             pdf_context = " ".join([page.extract_text() for page in reader.pages])
             st.success("✅ Document analysé")
-        except Exception as e:
+        except Exception:
             st.error("Erreur de lecture PDF")
 
-    # Dashboard de monitoring
     with st.expander("📊 Monitoring (Admin)"):
         if os.path.exists(DB_FILE):
             try:
@@ -104,30 +97,37 @@ st.title("🎓 Assistant IA Universitaire Pro")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Affichage des messages
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# Entrée utilisateur
 if prompt := st.chat_input("Posez votre question académique..."):
-    # 1. Affichage et sauvegarde utilisateur
+    # 1. Utilisateur
     st.session_state.messages.append({"role": "user", "content": prompt})
     save_to_db("user", prompt)
     with st.chat_message("user"):
         st.markdown(prompt)
-        # 2. Génération de la réponse
+
+    # 2. Assistant
     with st.chat_message("assistant"):
         try:
-            # Assure-toi que cette ligne est bien écrite sur une seule ligne
             model = genai.GenerativeModel('gemini-1.5-pro')
             
-            # Le reste du code...
             if pdf_context:
                 combined_prompt = f"CONTEXTE: {pdf_context[:5000]}\n\nQUESTION: {prompt}"
             else:
                 combined_prompt = prompt
                 
             response = model.generate_content(combined_prompt)
+            full_res = response.text
+            
+            st.markdown(full_res)
+            
+            st.session_state.messages.append({"role": "assistant", "content": full_res})
+            save_to_db("assistant", full_res)
+            
+        except Exception as e:
+            st.error(f"Erreur Gemini : {e}")
 
- 
+st.divider()
+st.caption("© 2026 JBK Enterprise - Université Protestante de Lubumbashi")
