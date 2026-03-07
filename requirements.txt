@@ -1,5 +1,5 @@
 streamlit
 groq
 Pillow
-PyPDF2
 pandas
+
