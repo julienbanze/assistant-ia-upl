@@ -15,7 +15,6 @@ st.set_page_config(
 )
 
 # --- GESTION DE LA BASE DE DONNÉES ---
-# On utilise un chemin simple pour éviter les erreurs de permission sur le cloud
 DB_FILE = 'jbk_data.db'
 
 def init_db():
@@ -27,7 +26,6 @@ def init_db():
         conn.commit()
         conn.close()
     except Exception:
-        # Si la DB échoue, l'application continue sans stockage persistant
         pass
 
 init_db()
@@ -43,7 +41,6 @@ def save_to_db(role, content):
         pass
 
 # --- CONFIGURATION API ---
-# Assure-toi que "api_key" est bien configuré dans les Secrets de Streamlit
 api_key = st.secrets.get("api_key")
 
 if api_key:
@@ -100,43 +97,39 @@ st.title("🎓 Assistant IA Universitaire Pro")
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Affichage de l'historique de la session
 for m in st.session_state.messages:
     with st.chat_message(m["role"]):
         st.markdown(m["content"])
 
-# Entrée utilisateur
 if prompt := st.chat_input("Posez votre question académique..."):
-    # 1. Traitement Utilisateur
     st.session_state.messages.append({"role": "user", "content": prompt})
     save_to_db("user", prompt)
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # 2. Réponse de l'Assistant
     with st.chat_message("assistant"):
         try:
-            # Utilisation de gemini-1.5-flash pour une compatibilité maximale
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # CHANGEMENT ICI : Utilisation du nom de modèle le plus stable
+            model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
             
             if pdf_context:
                 combined_prompt = f"CONTEXTE: {pdf_context[:5000]}\n\nQUESTION: {prompt}"
             else:
                 combined_prompt = prompt
                 
-            # Génération avec indicateur de chargement
             with st.spinner("Réflexion en cours..."):
                 response = model.generate_content(combined_prompt)
                 full_res = response.text
             
             st.markdown(full_res)
             
-            # Sauvegarde
             st.session_state.messages.append({"role": "assistant", "content": full_res})
             save_to_db("assistant", full_res)
             
         except Exception as e:
-            st.error(f"Erreur Gemini : {e}")
+            # Si l'erreur persiste, on affiche un message d'aide plus clair
+            st.error(f"Erreur de connexion au modèle : {e}")
+            st.info("Conseil : Vérifie que ta clé API est bien une clé Google AI (AIza...) et non une clé Groq.")
 
 st.divider()
 st.caption("© 2026 JBK Enterprise - Université Protestante de Lubumbashi")
