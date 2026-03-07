@@ -116,8 +116,18 @@ if prompt := st.chat_input("Posez votre question académique..."):
     save_to_db("user", prompt)
     with st.chat_message("user"):
         st.markdown(prompt)
-
-    # 2. Génération de la réponse
+        # 2. Génération de la réponse
     with st.chat_message("assistant"):
         try:
-            model =
+            # Assure-toi que cette ligne est bien écrite sur une seule ligne
+            model = genai.GenerativeModel('gemini-1.5-pro')
+            
+            # Le reste du code...
+            if pdf_context:
+                combined_prompt = f"CONTEXTE: {pdf_context[:5000]}\n\nQUESTION: {prompt}"
+            else:
+                combined_prompt = prompt
+                
+            response = model.generate_content(combined_prompt)
+
+ 
