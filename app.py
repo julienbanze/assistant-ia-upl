@@ -44,12 +44,13 @@ def save_to_db(role, content):
 api_key = st.secrets.get("api_key")
 
 if api_key:
+    # Correction cruciale : Configuration explicite
     genai.configure(api_key=api_key)
 else:
     st.error("🔑 Erreur : Clé API non configurée dans les Secrets Streamlit.")
     st.stop()
 
-# --- BARRE LATÉRALE (SIDEBAR) ---
+# --- BARRE LATÉRALE ---
 with st.sidebar:
     st.markdown(f"""
     <div style='padding: 10px; background: #1e1f20; border-radius: 10px; border: 1px solid #444;'>
@@ -71,26 +72,6 @@ with st.sidebar:
         except Exception:
             st.error("Erreur de lecture PDF")
 
-    with st.expander("📊 Monitoring (Admin)"):
-        if os.path.exists(DB_FILE):
-            try:
-                conn = sqlite3.connect(DB_FILE)
-                df = pd.read_sql_query("SELECT * FROM chat_logs ORDER BY timestamp DESC LIMIT 10", conn)
-                st.dataframe(df, use_container_width=True)
-                conn.close()
-            except:
-                st.write("Base de données inaccessible.")
-        
-        if st.button("🗑️ Vider l'historique DB"):
-            try:
-                conn = sqlite3.connect(DB_FILE)
-                conn.cursor().execute("DELETE FROM chat_logs")
-                conn.commit()
-                conn.close()
-                st.rerun()
-            except:
-                pass
-
 # --- ZONE DE CHAT PRINCIPALE ---
 st.title("🎓 Assistant IA Universitaire Pro")
 
@@ -109,8 +90,8 @@ if prompt := st.chat_input("Posez votre question académique..."):
 
     with st.chat_message("assistant"):
         try:
-            # CHANGEMENT ICI : Utilisation du nom de modèle le plus stable
-            model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
+            # MÉTHODE DE SECOURS : Appel direct du nom court sans préfixe beta
+            model = genai.GenerativeModel('gemini-1.5-flash')
             
             if pdf_context:
                 combined_prompt = f"CONTEXTE: {pdf_context[:5000]}\n\nQUESTION: {prompt}"
@@ -118,6 +99,7 @@ if prompt := st.chat_input("Posez votre question académique..."):
                 combined_prompt = prompt
                 
             with st.spinner("Réflexion en cours..."):
+                # Utilisation de la méthode standard
                 response = model.generate_content(combined_prompt)
                 full_res = response.text
             
@@ -127,9 +109,14 @@ if prompt := st.chat_input("Posez votre question académique..."):
             save_to_db("assistant", full_res)
             
         except Exception as e:
-            # Si l'erreur persiste, on affiche un message d'aide plus clair
-            st.error(f"Erreur de connexion au modèle : {e}")
-            st.info("Conseil : Vérifie que ta clé API est bien une clé Google AI (AIza...) et non une clé Groq.")
+            # Si Gemini 1.5 Flash échoue encore, on tente le modèle Pro par défaut
+            try:
+                model_alt = genai.GenerativeModel('gemini-pro')
+                response = model_alt.generate_content(prompt)
+                st.markdown(response.text)
+            except:
+                st.error(f"Erreur de connexion persistante : {e}")
+                st.info("Vérifiez que votre clé API est bien active sur aistudio.google.com")
 
 st.divider()
 st.caption("© 2026 JBK Enterprise - Université Protestante de Lubumbashi")
