@@ -1,12 +1,7 @@
 """
-ASSISTANT IA ACADÉMIQUE INTERNATIONAL
+ASSISTANT IA ACADÉMIQUE
 Développé par Julien Banze Kandolo
-Version : Pro
-Fonctions :
-- Chat IA
-- Question vocale
-- Multi-langue
-- Design moderne
+Version internationale (interface en français)
 """
 
 import streamlit as st
@@ -14,19 +9,19 @@ from groq import Groq
 import logging
 from pathlib import Path
 
-# =============================
+# -----------------------------
 # CONFIGURATION PAGE
-# =============================
+# -----------------------------
 
 st.set_page_config(
-    page_title="AI Academic Assistant",
+    page_title="Assistant Académique IA",
     page_icon="🎓",
     layout="wide"
 )
 
-# =============================
-# DESIGN PROFESSIONNEL
-# =============================
+# -----------------------------
+# DESIGN
+# -----------------------------
 
 st.markdown("""
 <style>
@@ -39,19 +34,6 @@ color:white;
 h1{
 text-align:center;
 color:#FFD700;
-font-size:40px;
-}
-
-.chat-user{
-background:#FFD70020;
-padding:10px;
-border-radius:10px;
-}
-
-.chat-ai{
-background:#00ff7f20;
-padding:10px;
-border-radius:10px;
 }
 
 .stChatInput input{
@@ -62,9 +44,9 @@ padding:15px;
 </style>
 """, unsafe_allow_html=True)
 
-# =============================
-# LOGGING
-# =============================
+# -----------------------------
+# LOGS
+# -----------------------------
 
 Path("logs").mkdir(exist_ok=True)
 
@@ -77,107 +59,122 @@ logging.basicConfig(
     ]
 )
 
-# =============================
+# -----------------------------
 # INITIALISATION GROQ
-# =============================
+# -----------------------------
 
 @st.cache_resource
 def init_client():
-    return Groq(api_key=st.secrets["GROQ_API_KEY"])
+    try:
+        return Groq(api_key=st.secrets["GROQ_API_KEY"])
+    except:
+        st.error("Ajoutez GROQ_API_KEY dans les secrets Streamlit")
+        st.stop()
 
 client = init_client()
 
-# =============================
-# PROMPT IA MULTILINGUE
-# =============================
+# -----------------------------
+# PROMPT SYSTEME
+# -----------------------------
 
 SYSTEM_PROMPT = """
-You are an international academic AI assistant.
+Tu es un assistant académique très intelligent.
 
-Rules:
-- Detect automatically the language of the user
-- Answer in the same language
-- Provide structured academic responses
-- Use:
-Title
+Règles :
+- Réponds toujours en français
+- Explique clairement comme un professeur
+- Utilise une structure académique
+
+Structure de réponse :
+Titre
 Introduction
-Explanation
+Explication détaillée
 Conclusion
 
-Be clear, professional and educational.
+Sois pédagogique et précis.
 """
 
-# =============================
-# MEMOIRE CHAT
-# =============================
+# -----------------------------
+# MEMOIRE SESSION
+# -----------------------------
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# =============================
-# HEADER
-# =============================
+# -----------------------------
+# EN-TETE
+# -----------------------------
 
-st.title("🎓 AI Academic Assistant")
-st.write("Ask questions in **any language** or use **voice input**.")
+st.title("🎓 Assistant Académique IA")
+st.write("Posez vos questions académiques ou utilisez le micro.")
 
-# =============================
+# -----------------------------
 # AFFICHAGE CHAT
-# =============================
+# -----------------------------
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# =============================
-# INPUT VOCAL
-# =============================
+# -----------------------------
+# QUESTION VOCALE
+# -----------------------------
 
-audio = st.audio_input("🎤 Ask your question with voice")
+audio = st.audio_input("🎤 Posez votre question avec votre voix")
 
-if audio:
+if audio is not None:
 
-    with st.spinner("Transcribing voice..."):
+    with st.spinner("Transcription de la voix..."):
 
         transcription = client.audio.transcriptions.create(
-            file=("audio.wav", audio),
+            file=("audio.wav", audio.getvalue()),
             model="whisper-large-v3"
         )
 
-        voice_prompt = transcription.text
+        voice_prompt = transcription.text.strip()
 
-        st.chat_message("user").markdown(voice_prompt)
+        if voice_prompt != "":
+            st.chat_message("user").markdown(voice_prompt)
 
-        st.session_state.messages.append({
-            "role":"user",
-            "content":voice_prompt
-        })
+            st.session_state.messages.append({
+                "role": "user",
+                "content": voice_prompt
+            })
 
-# =============================
-# INPUT TEXTE
-# =============================
+# -----------------------------
+# QUESTION TEXTE
+# -----------------------------
 
-prompt = st.chat_input("Ask your academic question...")
+prompt = st.chat_input("Posez votre question académique...")
 
 if prompt:
-    st.session_state.messages.append({"role":"user","content":prompt})
+    st.session_state.messages.append({
+        "role": "user",
+        "content": prompt
+    })
+
     st.chat_message("user").markdown(prompt)
 
-# =============================
-# GENERATION REPONSE IA
-# =============================
+# -----------------------------
+# REPONSE IA
+# -----------------------------
 
-if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
 
     with st.chat_message("assistant"):
 
         placeholder = st.empty()
         full_response = ""
 
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+        for msg in st.session_state.messages:
+            if msg["content"].strip() != "":
+                messages.append(msg)
+
         stream = client.chat.completions.create(
             model="llama-3.1-70b-versatile",
-            messages=[{"role":"system","content":SYSTEM_PROMPT}]
-            + st.session_state.messages,
+            messages=messages,
             stream=True,
             temperature=0.2,
             max_tokens=1500
@@ -191,21 +188,19 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         placeholder.markdown(full_response)
 
     st.session_state.messages.append({
-        "role":"assistant",
-        "content":full_response
+        "role": "assistant",
+        "content": full_response
     })
 
-# =============================
+# -----------------------------
 # FOOTER
-# =============================
+# -----------------------------
 
 st.markdown("---")
 
-st.markdown(
-"""
-🌍 **AI Academic Assistant**
+st.markdown("""
+Assistant Académique IA  
 
-Developed by **Julien Banze Kandolo**  
-Powered by Groq AI
-"""
-)
+Développé par **Julien Banze Kandolo**  
+Propulsé par Groq IA
+""")
