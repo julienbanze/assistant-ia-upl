@@ -2,11 +2,10 @@ import streamlit as st
 from groq import Groq
 import logging
 from pathlib import Path
-import pandas as pd
 import PyPDF2
 
 # -----------------------------
-# CONFIGURATION PAGE
+# CONFIG PAGE
 # -----------------------------
 
 st.set_page_config(
@@ -81,13 +80,6 @@ intelligence artificielle
 programmation
 
 Réponds toujours en français.
-
-Structure tes réponses :
-
-Titre
-Explication claire
-Exemple
-Conclusion
 """
 
 # -----------------------------
@@ -105,8 +97,6 @@ with st.sidebar:
     if st.button("Nouvelle conversation"):
         st.session_state.messages=[]
         st.rerun()
-
-    st.divider()
 
     uploaded_pdf = st.file_uploader(
         "📄 Charger un PDF de cours",
@@ -126,7 +116,7 @@ if uploaded_pdf:
     for page in reader.pages:
         pdf_text += page.extract_text()
 
-    st.success("PDF chargé avec succès")
+    st.success("PDF chargé")
 
 # -----------------------------
 # RESUME PDF
@@ -136,70 +126,42 @@ if pdf_text != "":
 
     if st.button("📚 Résumer le cours"):
 
-        with st.spinner("Analyse du cours..."):
+        resume_prompt = f"Résume ce cours pour un étudiant : {pdf_text[:4000]}"
 
-            resume_prompt = f"""
-            Résume ce cours pour un étudiant.
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role":"user","content":resume_prompt}],
+            temperature=0.3,
+            max_tokens=800
+        )
 
-            Structure :
-            - Titre
-            - Concepts principaux
-            - Explication simple
-            - Conclusion
+        st.markdown("### 📘 Résumé")
 
-            {pdf_text[:4000]}
-            """
-
-            completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role":"user","content":resume_prompt}],
-                temperature=0.3,
-                max_tokens=1000
-            )
-
-            st.markdown("### 📘 Résumé du cours")
-
-            st.write(completion.choices[0].message.content)
+        st.write(completion.choices[0].message.content)
 
 # -----------------------------
-# GENERER QCM
+# QCM
 # -----------------------------
 
 if pdf_text != "":
 
-    if st.button("📝 Générer un QCM"):
+    if st.button("📝 Générer QCM"):
 
-        with st.spinner("Création du test..."):
+        qcm_prompt = f"Crée un QCM de 5 questions basé sur ce cours : {pdf_text[:4000]}"
 
-            qcm_prompt = f"""
-            Crée un QCM de 5 questions pour réviser ce cours.
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role":"user","content":qcm_prompt}],
+            temperature=0.5,
+            max_tokens=800
+        )
 
-            Format :
+        st.markdown("### 🧠 Test")
 
-            Question
-            A)
-            B)
-            C)
-            D)
-
-            Puis donne les réponses correctes.
-
-            {pdf_text[:4000]}
-            """
-
-            completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role":"user","content":qcm_prompt}],
-                temperature=0.5,
-                max_tokens=1000
-            )
-
-            st.markdown("### 🧠 Test de révision")
-
-            st.write(completion.choices[0].message.content)
+        st.write(completion.choices[0].message.content)
 
 # -----------------------------
-# MEMOIRE
+# MEMOIRE CHAT
 # -----------------------------
 
 if "messages" not in st.session_state:
@@ -211,10 +173,10 @@ if "messages" not in st.session_state:
 
 st.title("🎓 Assistant Académique IA")
 
-st.write("Posez vos questions académiques par texte ou par voix.")
+st.write("Posez vos questions académiques.")
 
 # -----------------------------
-# HISTORIQUE CHAT
+# HISTORIQUE
 # -----------------------------
 
 for msg in st.session_state.messages:
@@ -226,7 +188,7 @@ for msg in st.session_state.messages:
 # QUESTION VOCALE
 # -----------------------------
 
-audio = st.audio_input("🎤 Posez votre question avec votre voix")
+audio = st.audio_input("🎤 Parlez à l'assistant")
 
 if audio is not None:
 
@@ -248,7 +210,7 @@ if audio is not None:
 # QUESTION TEXTE
 # -----------------------------
 
-prompt = st.chat_input("Posez votre question académique...")
+prompt = st.chat_input("Posez votre question")
 
 if prompt:
 
@@ -267,83 +229,96 @@ if len(st.session_state.messages)>0 and st.session_state.messages[-1]["role"]=="
 
     with st.chat_message("assistant"):
 
-        placeholder = st.empty()
-
-        full_response=""
-
         messages=[{"role":"system","content":SYSTEM_PROMPT}]
-
-        if pdf_text!="":
-            messages.append({
-                "role":"system",
-                "content":"Voici un cours PDF fourni :"+pdf_text[:4000]
-            })
 
         for m in st.session_state.messages:
             messages.append(m)
 
-        stream = client.chat.completions.create(
+        completion = client.chat.completions.create(
 
             model="llama-3.3-70b-versatile",
 
             messages=messages,
 
-            stream=True,
-
             temperature=0.2,
 
-            max_tokens=1500
+            max_tokens=1000
         )
 
-        for chunk in stream:
+        response = completion.choices[0].message.content
 
-            if chunk.choices[0].delta.content:
-
-                full_response += chunk.choices[0].delta.content
-
-                placeholder.markdown(full_response+"▌")
-
-        placeholder.markdown(full_response)
-
-        # -----------------------------
-        # REPONSE VOCALE
-        # -----------------------------
+        st.markdown(response)
 
         st.markdown(f"""
         <script>
-
-        var text = `{full_response}`;
-
-        var speech = new SpeechSynthesisUtterance(text);
-
+        var speech = new SpeechSynthesisUtterance(`{response}`);
         speech.lang = "fr-FR";
-
-        speech.rate = 1;
-
-        speech.pitch = 1;
-
         window.speechSynthesis.speak(speech);
-
         </script>
         """, unsafe_allow_html=True)
 
     st.session_state.messages.append({
         "role":"assistant",
-        "content":full_response
+        "content":response
     })
 
 # -----------------------------
-# HISTORIQUE SIDEBAR
+# MODE APPEL VOCAL
 # -----------------------------
 
-st.sidebar.divider()
+st.divider()
 
-st.sidebar.subheader("📜 Historique des questions")
+st.subheader("📞 Mode appel vocal")
 
-for msg in st.session_state.messages:
+if "call_mode" not in st.session_state:
+    st.session_state.call_mode=False
 
-    if msg["role"]=="user":
-        st.sidebar.write("•", msg["content"])
+col1,col2=st.columns(2)
+
+with col1:
+    if st.button("📞 Démarrer appel"):
+        st.session_state.call_mode=True
+
+with col2:
+    if st.button("❌ Terminer appel"):
+        st.session_state.call_mode=False
+
+if st.session_state.call_mode:
+
+    st.info("🎤 Parlez avec le micro")
+
+    audio_call = st.audio_input("Votre question")
+
+    if audio_call is not None:
+
+        transcription = client.audio.transcriptions.create(
+            file=("audio.wav", audio_call.getvalue()),
+            model="whisper-large-v3"
+        )
+
+        question = transcription.text
+
+        st.write("Vous :",question)
+
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role":"system","content":SYSTEM_PROMPT},
+                {"role":"user","content":question}
+            ]
+        )
+
+        rep = completion.choices[0].message.content
+
+        st.write("IA :",rep)
+
+        st.markdown(f"""
+        <script>
+        var speech = new SpeechSynthesisUtterance(`{rep}`);
+        speech.lang="fr-FR";
+        window.speechSynthesis.speak(speech);
+        </script>
+        """,unsafe_allow_html=True)
 
 # -----------------------------
 # FOOTER
@@ -351,6 +326,4 @@ for msg in st.session_state.messages:
 
 st.divider()
 
-st.markdown(
-"Assistant académique intelligent développé par **Julien Banze Kandolo**"
-)
+st.markdown("Assistant académique développé par **Julien Banze Kandolo**")
