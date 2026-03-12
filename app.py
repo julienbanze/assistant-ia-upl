@@ -1,8 +1,8 @@
 """
-Assistant Académique JBK - Production-Ready Application
+Assistant Académique IA - Production-Ready Application
 
 Une application Streamlit professionnelle pour l'assistance académique 
-à l'Université Pédagogique de Lubumbashi (UPL).
+à l'Université Protestante de Lubumbashi (UPL).
 
 Architecture:
 - Gestion d'erreurs robuste
@@ -24,6 +24,7 @@ from datetime import datetime
 import streamlit as st
 from groq import Groq
 from groq.types.chat import ChatCompletion
+import httpx  # nécessaire pour solution de contournement des proxies
 
 
 # ============================================================================
@@ -146,6 +147,9 @@ def configure_page() -> None:
         @media (max-width: 768px) {
             .welcome-title { font-size: 1.8rem !important; }
             .jbk-name { font-size: 1rem !important; }
+            .stChatMessage { font-size: 0.9rem; }
+            .input-signature { font-size: 0.75rem; }
+            .stButton > button { font-size: 0.9rem; }
         }
     </style>
     """, unsafe_allow_html=True)
@@ -179,7 +183,17 @@ def get_groq_client() -> Optional[Groq]:
             logger.error("GROQ_API_KEY invalide")
             raise ValueError("GROQ_API_KEY invalide")
         
-        client = Groq(api_key=api_key)
+        try:
+            client = Groq(api_key=api_key)
+        except TypeError as e:
+            # certains environnements transmettent une clé `proxies` à httpx qui
+            # n'est pas acceptée par la version installée -> contournement
+            if "proxies" in str(e):
+                logger.warning("Erreur proxies lors de l'init Groq, création d'un http_client vide")
+                http_client = httpx.Client(proxies={})
+                client = Groq(api_key=api_key, http_client=http_client)
+            else:
+                raise
         logger.info("Client Groq initialisé avec succès")
         return client
     
@@ -326,8 +340,9 @@ def render_sidebar() -> Optional[str]:
     st.sidebar.markdown(
         """
         <div style='padding:10px; border:1px solid #444; border-radius:8px; background:#1a1f3a;'>
-        <strong>Assistant Académique JBK</strong><br/>
-        Créé par : <em>Julien Banze Kandolo</em><br/>
+        <strong>Assistant Académique IA</strong><br/>
+        Développé par : <em>Julien Banze Kandolo</em><br/>
+        <small>Pour plus d'informations sur l'UPL, visitez :</small><br/>
         <a href='https://upl.ac.ug' style='color:#8ab4f8;'>Université Protestante de Lubumbashi (UPL)</a><br/>
         Powered by <strong>Groq API</strong>
         </div>
@@ -378,7 +393,7 @@ def main() -> None:
         
         # Écran d'accueil
         if not st.session_state.messages:
-            st.markdown("<h1 class='welcome-title'>Assistant Académique JBK</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 class='welcome-title'>Assistant Académique IA</h1>", unsafe_allow_html=True)
             st.markdown("<p style='text-align:center;'>Posez votre question académique dans la zone de chat ci‑dessous.</p>", unsafe_allow_html=True)
         
         # Afficher la conversation existante
