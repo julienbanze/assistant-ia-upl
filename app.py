@@ -103,7 +103,7 @@ if "messages" not in st.session_state:
 # TITRE
 # -----------------------------
 st.title("🎓 Assistant Académique IA")
-st.write("Posez vos questions académiques en français. L’IA peut répéter la question dans une autre langue et répondra en français.")
+st.write("Parlez ou tapez votre question. L’IA répondra automatiquement avec texte et voix.")
 
 # -----------------------------
 # HISTORIQUE
@@ -113,79 +113,29 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # -----------------------------
-# QUESTION TEXTE
+# QUESTION VOCALE (style WhatsApp)
 # -----------------------------
-prompt = st.chat_input("Posez votre question")
-if prompt:
-    st.session_state.messages.append({"role":"user","content":prompt})
-    st.chat_message("user").markdown(prompt)
+audio_input = st.audio_input("🎤 Posez votre question avec votre voix")
+if audio_input is not None:
+    transcription = client.audio.transcriptions.create(
+        file=("audio.wav", audio_input.getvalue()),
+        model="whisper-large-v3"
+    )
+    question = transcription.text
+    st.chat_message("user").markdown(question)
+    st.session_state.messages.append({"role":"user","content":question})
 
-# -----------------------------
-# MODE APPEL VOCAL AMÉLIORÉ
-# -----------------------------
-st.divider()
-st.subheader("📞 Mode appel vocal")
-if "call_mode" not in st.session_state:
-    st.session_state.call_mode=False
-
-col1,col2=st.columns(2)
-with col1:
-    if st.button("📞 Démarrer appel"):
-        st.session_state.call_mode=True
-with col2:
-    if st.button("❌ Terminer appel"):
-        st.session_state.call_mode=False
-
-if st.session_state.call_mode:
-    st.info("🎤 Parlez avec le micro et validez l'enregistrement")
-
-    audio_call = st.audio_input("Votre question")
-    if audio_call is not None:
-        transcription = client.audio.transcriptions.create(
-            file=("audio.wav", audio_call.getvalue()),
-            model="whisper-large-v3"
-        )
-        question = transcription.text
-        st.write("🧑 Vous :", question)
-
-        # Vérification créateur
-        if "julien banze kandolo" in question.lower():
-            rep = "🙏 Ce projet a été créé par Julien Banze Kandolo, merci de le respecter !"
-        else:
-            # Génération IA
-            messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":question}]
-            if pdf_text!="":
-                messages.append({"role":"system","content":"Cours fourni par l'utilisateur :"+pdf_text[:4000]})
-            completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=messages,
-                temperature=0.2,
-                max_tokens=800
-            )
-            rep = completion.choices[0].message.content
-
-        st.write("🤖 IA :", rep)
-
-        # VOIX IA
-        st.markdown(f"""
-        <script>
-        var speech = new SpeechSynthesisUtterance(`{rep}`);
-        speech.lang="fr-FR";
-        window.speechSynthesis.speak(speech);
-        </script>
-        """, unsafe_allow_html=True)
-
-        # Ajouter à la mémoire
-        st.session_state.messages.append({"role":"assistant","content":rep})
-
-# -----------------------------
-# GENERATION IA TEXTE + VOIX (non appel)
-# -----------------------------
-if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"]=="user" and not st.session_state.call_mode:
-    with st.chat_message("assistant"):
+    # Vérification créateur
+    if "julien banze kandolo" in question.lower():
+        response = "🙏 Ce projet a été créé par Julien Banze Kandolo, merci de le respecter !"
+    else:
+        # Préparer les messages pour IA
         messages=[{"role":"system","content":SYSTEM_PROMPT}]
+        if pdf_text!="":
+            messages.append({"role":"system","content":"Cours fourni par l'utilisateur :"+pdf_text[:4000]})
         for m in st.session_state.messages:
             messages.append(m)
+
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
@@ -193,16 +143,51 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"]=
             max_tokens=1200
         )
         response = completion.choices[0].message.content
-        st.markdown(response)
-        # VOIX IA
-        st.markdown(f"""
-        <script>
-        var speech = new SpeechSynthesisUtterance(`{response}`);
-        speech.lang="fr-FR";
-        window.speechSynthesis.speak(speech);
-        </script>
-        """, unsafe_allow_html=True)
-        st.session_state.messages.append({"role":"assistant","content":response})
+
+    # Affichage texte et lecture voix
+    st.chat_message("assistant").markdown(response)
+    st.markdown(f"""
+    <script>
+    var speech = new SpeechSynthesisUtterance(`{response}`);
+    speech.lang="fr-FR";
+    window.speechSynthesis.speak(speech);
+    </script>
+    """, unsafe_allow_html=True)
+    st.session_state.messages.append({"role":"assistant","content":response})
+
+# -----------------------------
+# QUESTION TEXTE
+# -----------------------------
+prompt = st.chat_input("Ou tapez votre question")
+if prompt:
+    st.session_state.messages.append({"role":"user","content":prompt})
+    st.chat_message("user").markdown(prompt)
+
+    # Génération IA
+    messages=[{"role":"system","content":SYSTEM_PROMPT}]
+    if pdf_text!="":
+        messages.append({"role":"system","content":"Cours fourni par l'utilisateur :"+pdf_text[:4000]})
+    for m in st.session_state.messages:
+        messages.append(m)
+
+    completion = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=messages,
+        temperature=0.2,
+        max_tokens=1200
+    )
+    response = completion.choices[0].message.content
+
+    # Affichage texte et voix
+    st.chat_message("assistant").markdown(response)
+    st.markdown(f"""
+    <script>
+    var speech = new SpeechSynthesisUtterance(`{response}`);
+    speech.lang="fr-FR";
+    window.speechSynthesis.speak(speech);
+    </script>
+    """, unsafe_allow_html=True)
+    st.session_state.messages.append({"role":"assistant","content":response})
 
 # -----------------------------
 # FOOTER
