@@ -3,3 +3,4 @@ groq
 Pillow
 pandas
 PyPDF2
+mysql-connector-python
