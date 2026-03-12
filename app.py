@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# DESIGN PROFESSIONNEL
+# DESIGN
 # -----------------------------
 st.markdown("""
 <style>
@@ -30,6 +30,13 @@ text-align:center;
 border-radius:25px;
 border:2px solid gold;
 padding:12px;
+}
+.stChatInput button[title="Record audio"]{
+border-radius:50%;
+background:#FFD700;
+color:#111;
+width:50px;
+height:50px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -103,7 +110,7 @@ if "messages" not in st.session_state:
 # TITRE
 # -----------------------------
 st.title("🎓 Assistant Académique IA")
-st.write("Tapez votre question ou utilisez le micro. L’IA répond en texte et en voix.")
+st.write("Tapez votre question ou cliquez sur le micro pour parler. L’IA répondra en texte et en voix.")
 
 # -----------------------------
 # HISTORIQUE CHAT
@@ -113,22 +120,15 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # -----------------------------
-# ZONE TEXTE + AUDIO (comme ChatGPT)
+# INPUT TEXTE + MICRO STYLE WHATSAPP / ChatGPT
 # -----------------------------
-col_text, col_audio = st.columns([3,1])
-
-# --- Texte
-with col_text:
-    prompt = st.chat_input("Posez votre question")
-
-# --- Audio
-with col_audio:
-    audio_input = st.audio_input("🎤")
+user_input = st.chat_input("Posez votre question...")  # zone texte avec micro intégré
 
 # -----------------------------
-# TRAITEMENT AUDIO
+# TRAITEMENT AUDIO (micro intégré)
 # -----------------------------
-if audio_input is not None:
+if st.session_state.get("last_audio") is not None:
+    audio_input = st.session_state.pop("last_audio")
     transcription = client.audio.transcriptions.create(
         file=("audio.wav", audio_input.getvalue()),
         model="whisper-large-v3"
@@ -140,9 +140,9 @@ if audio_input is not None:
 # -----------------------------
 # TRAITEMENT TEXTE
 # -----------------------------
-if prompt:
-    st.session_state.messages.append({"role":"user","content":prompt})
-    st.chat_message("user").markdown(prompt)
+if user_input:
+    st.session_state.messages.append({"role":"user","content":user_input})
+    st.chat_message("user").markdown(user_input)
 
 # -----------------------------
 # GENERATION IA (texte + voix)
