@@ -1,0 +1,39 @@
+# Secrets and environment
+secrets.toml
+.env
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual envs
+venv/
+ENV/
+env/
+.venv/
+
+# Project directories (ignored for GitHub pushes)
+config/
+src/
+tests/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs and coverage
+logs/
+.pytest_cache/
+.coverage
+
+# Streamlit
+.streamlit/
+
+# Misc
+.DS_Store
+Thumbs.db
