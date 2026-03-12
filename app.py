@@ -96,52 +96,142 @@ def configure_page() -> None:
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
         
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         html, body, [data-testid="stAppViewContainer"] {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background-color: #0a0e27 !important;
+            background: linear-gradient(135deg, #0f172a 0%, #1a1f3a 50%, #0f172a 100%);
             color: #e3e3e3;
         }
         
-        /* centre le contenu principal et limite sa largeur */
+        /* Conteneur principal compact */
         div[data-testid="stAppViewContainer"] > .main > .block-container {
-            max-width: 800px;
+            max-width: 850px;
             margin: 0 auto;
-            padding-top: 2rem;
+            padding-top: 1rem !important;
+            padding-bottom: 2rem;
         }
         
         .welcome-title {
-            background: linear-gradient(90deg, #4f46e5, #7c3aed, #ec4899, #4f46e5);
+            background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 50%, #ec4899 100%);
             background-size: 300% auto;
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            font-size: 2.8rem;
-            font-weight: 700;
-            animation: grad_flow 6s linear infinite;
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -1px;
             text-align: center;
-            margin: 2rem 0;
+            margin: 1.5rem 0 0.5rem 0;
+            animation: gradient_shift 8s ease infinite;
         }
         
-        @keyframes grad_flow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
-        
-        .stChatMessage { 
-            background: #1a1f3a; 
-            border-left: 3px solid #4f46e5; 
-            border-radius: 12px; 
-            padding: 8px;
+        @keyframes gradient_shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
         
-        .input-signature { text-align: center; color: #8ab4f8; font-size: 0.85rem; margin-bottom: 1rem; font-weight: 500; }
+        /* Messages de chat */
+        .stChatMessage {
+            background: rgba(30, 41, 59, 0.8) !important;
+            border: 1px solid rgba(75, 85, 170, 0.3) !important;
+            border-radius: 16px !important;
+            padding: 12px 16px !important;
+            backdrop-filter: blur(10px);
+            margin-bottom: 8px !important;
+        }
         
-        .stButton > button { width: 100%; border-radius: 8px; border: 1px solid #4f46e5; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white; font-weight: 600; transition: all 0.3s ease; }
+        .stChatMessage[data-testid*="user"] {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15)) !important;
+            border-color: rgba(59, 130, 246, 0.4) !important;
+            border-left: 4px solid #3b82f6 !important;
+        }
         
-        .stButton > button:hover { box-shadow: 0 8px 20px rgba(79, 70, 229, 0.4); transform: translateY(-2px); }
+        .stChatMessage[data-testid*="assistant"] {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.1)) !important;
+            border-color: rgba(34, 197, 94, 0.3) !important;
+            border-left: 4px solid #22c55e !important;
+        }
+        
+        /* Zone de texte invitée */
+        .stChatInputContainer {
+            margin-top: 1.5rem !important;
+        }
+        
+        .stChatInput input {
+            background: rgba(30, 41, 59, 0.7) !important;
+            border: 1px solid rgba(75, 85, 170, 0.5) !important;
+            border-radius: 12px !important;
+            color: #e3e3e3 !important;
+            padding: 12px 16px !important;
+            font-size: 0.95rem !important;
+            transition: all 0.3s ease;
+        }
+        
+        .stChatInput input:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3) !important;
+            background: rgba(30, 41, 59, 0.9) !important;
+        }
+        
+        /* Signature */
+        .input-signature {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.75rem;
+            margin-top: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.5px;
+        }
+        
+        /* Boutons */
+        .stButton > button {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
+            border: 1px solid rgba(59, 130, 246, 0.5) !important;
+            border-radius: 10px !important;
+            color: white !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease;
+            padding: 10px 20px !important;
+        }
+        
+        .stButton > button:hover {
+            background: linear-gradient(135deg, #06b6d4, #3b82f6) !important;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4) !important;
+            transform: translateY(-2px);
+        }
+        
+        /* Messages d'erreur */
+        .stAlert {
+            background: rgba(239, 68, 68, 0.1) !important;
+            border: 1px solid rgba(239, 68, 68, 0.3) !important;
+            border-radius: 12px !important;
+        }
+        
+        /* Scrollbar personnalisée */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(75, 85, 170, 0.5);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(75, 85, 170, 0.8);
+        }
         
         @media (max-width: 768px) {
-            .welcome-title { font-size: 1.8rem !important; }
-            .stChatMessage { font-size: 0.9rem; }
-            .input-signature { font-size: 0.75rem; }
-            .stButton > button { font-size: 0.9rem; }
+            .welcome-title { font-size: 2rem !important; }
+            div[data-testid="stAppViewContainer"] > .main > .block-container {
+                padding-top: 0.5rem !important;
+            }
         }
     </style>
     """, unsafe_allow_html=True)
@@ -255,7 +345,7 @@ Sois concis mais complet et évite les digressions inutiles."""
 def send_groq_message(
     client: Groq,
     messages: list[dict],
-    model: str = "mixtral-8x7b-32768"
+    model: str = "llama-3.3-70b-versatile"
 ) -> str:
     """
     Envoie un message à l'API Groq et retourne la réponse.
