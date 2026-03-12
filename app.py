@@ -5,7 +5,7 @@ from pathlib import Path
 import PyPDF2
 
 # -----------------------------
-# CONFIG PAGE
+# CONFIGURATION PAGE
 # -----------------------------
 st.set_page_config(
     page_title="Assistant Académique IA",
@@ -64,7 +64,7 @@ informatique, mathématiques, électronique, intelligence artificielle, programm
 Réponds toujours en français.
 
 Règles :
-1. Refuse poliment les questions impolies ou insultantes.
+1. Si la question est impolie ou hors sujet, refuse poliment (l'IA le détecte).
 2. Si on mentionne "Julien Banze Kandolo" ou variantes, affiche un message respectueux pour le créateur.
 3. Reconnais et explique les abréviations (ex: UPL = Université Protestante de Lubumbashi).
 4. Tu peux répéter la question dans une autre langue mais réponds toujours en français.
@@ -113,25 +113,6 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # -----------------------------
-# FONCTION DE FILTRAGE
-# -----------------------------
-def filtrer_question(texte):
-    mots_interdits = ["pute", "merde", "idiot", "stupide"]  # exemple insultes
-    mots_sujet = ["informatique","math","electronique","ia","intelligence artificielle","programmation","python","java","html","chimie","physique"]
-    
-    texte_lower = texte.lower()
-    
-    # Vérifie insultes
-    if any(m in texte_lower for m in mots_interdits):
-        return "Désolé, je ne peux pas répondre à ce type de question."
-    
-    # Vérifie sujet académique
-    if not any(m in texte_lower for m in mots_sujet):
-        return "Désolé, cette question ne correspond pas au domaine académique que je couvre."
-    
-    return None  # Ok pour envoyer à l'IA
-
-# -----------------------------
 # QUESTION VOCALE
 # -----------------------------
 audio_input = st.audio_input("🎤 Posez votre question avec votre voix")
@@ -142,13 +123,7 @@ if audio_input is not None:
     )
     question = transcription.text
     st.chat_message("user").markdown(question)
-    
-    # Filtrage
-    refus = filtrer_question(question)
-    if refus:
-        st.chat_message("assistant").markdown(refus)
-    else:
-        st.session_state.messages.append({"role":"user","content":question})
+    st.session_state.messages.append({"role":"user","content":question})
 
 # -----------------------------
 # QUESTION TEXTE
@@ -157,12 +132,6 @@ prompt = st.chat_input("Ou tapez votre question")
 if prompt:
     st.session_state.messages.append({"role":"user","content":prompt})
     st.chat_message("user").markdown(prompt)
-
-    # Filtrage
-    refus = filtrer_question(prompt)
-    if refus:
-        st.chat_message("assistant").markdown(refus)
-        st.session_state.messages.pop()  # Supprime la question de l'historique si refusée
 
 # -----------------------------
 # GENERATION IA (texte + voix)
