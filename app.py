@@ -193,17 +193,10 @@ def get_groq_client() -> Optional[Groq]:
 # ============================================================================
 
 def validate_message(content: str) -> str:
-    """
-    Valide et nettoie un message utilisateur.
-    
-    Args:
-        content (str): Contenu du message
-    
-    Returns:
-        str: Message validé et nettoyé
-    
-    Raises:
-        ValueError: Si le message est invalide
+    """Valide et nettoie un message utilisateur.
+
+    En plus de la validation habituelle, détecte les propos impolis ou vulgaires et
+    lève une exception spéciale pour en informer le flux de la conversation.
     """
     if not isinstance(content, str):
         raise ValueError("Le message doit être une chaîne de caractères")
@@ -215,18 +208,25 @@ def validate_message(content: str) -> str:
     
     if len(content) > 10000:
         raise ValueError("Le message est trop long (max 10000 caractères)")
+
+    # Simple filtre de grossièretés (français/anglais)
+    bad_words = ["con", "pute", "merde", "salope", "idiot", "stupide", "fuck", "shit"]
+    lowered = content.lower()
+    for word in bad_words:
+        if word in lowered.split():
+            raise ValueError("Veuillez rester poli dans vos demandes — je suis un assistant académique.")
     
     return content
 
 
 def get_system_prompt() -> str:
+    """Retourne le prompt système pour l'assistant.
+
+    Le prompt guide l'IA vers un comportement pédagogique, courtois et poli. Si l'utilisateur
+    envoie des propos grossiers ou déplacés, l'assistant doit répondre calmement qu'il n'est
+    pas conçu pour ce type de requête et encourager le respect.
     """
-    Retourne le prompt système pour l'assistant.
-    
-    Returns:
-        str: Prompt système
-    """
-    return """Tu es un assistant académique expert pour l'Université Pédagogique de Lubumbashi (UPL).
+    return """Tu es un assistant académique expert pour l'Université Protestante de Lubumbashi (UPL).
 
 Tu dois:
 1. Aider les étudiants avec leurs cours et devoirs
@@ -234,6 +234,10 @@ Tu dois:
 3. Fournir des références académiques quand c'est pertinent
 4. Encourager la réflexion critique et individuelle
 5. Respecter l'intégrité académique
+
+Reste toujours respectueux envers l'utilisateur et réponds de façon courtoise. Si l'utilisateur pose une
+question impolie, dénigrante ou hors sujet, explique calmement que tu n'es pas conçu pour ce type de requête
+et demande de rester poli.
 
 Réponds toujours de manière professionnelle.
 Si la question est en français, réponds en français.
@@ -304,48 +308,34 @@ def initialize_session_state() -> None:
 # ============================================================================
 
 def render_sidebar() -> Optional[str]:
-    """
-    Affiche la barre latérale et retourne l'action sélectionnée.
-    
-    Returns:
-        Optional[str]: Action sélectionnée ou None
-    """
-    with st.sidebar:
-        st.markdown(f"""
-        <div class="jbk-card">
-            <p class="jbk-title">Expert IA</p>
-            <p class="jbk-name">Julien Banze Kandolo</p>
+    """Affiche la barre latérale minimaliste et retourne l'action sélectionnée."""
+
+    st.sidebar.markdown("# Menu")
+
+    # boutons principaux alignés en colonne, style simple comme Gemini
+    if st.sidebar.button("➕ Nouvelle session", use_container_width=True):
+        logger.info("Nouvelle session demandée")
+        return "new_session"
+
+    if st.sidebar.button("📊 Statistiques", use_container_width=True):
+        logger.info("Statistiques demandées")
+        return "stats"
+
+    st.sidebar.markdown("---")
+
+    st.sidebar.markdown(
+        """
+        <div style='padding:10px; border:1px solid #444; border-radius:8px; background:#1a1f3a;'>
+        <strong>Assistant Académique JBK</strong><br/>
+        Créé par : <em>Julien Banze Kandolo</em><br/>
+        <a href='https://upl.ac.ug' style='color:#8ab4f8;'>Université Protestante de Lubumbashi (UPL)</a><br/>
+        Powered by <strong>Groq API</strong>
         </div>
-        """, unsafe_allow_html=True)
-        
-        st.divider()
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("＋ Nouvelle Session", use_container_width=True):
-                logger.info("Nouvelle session demandée")
-                return "new_session"
-        
-        with col2:
-            if st.button("📊 Statistiques", use_container_width=True):
-                logger.info("Statistiques demandées")
-                return "stats"
-        
-        st.divider()
-        
-        with st.expander("ℹ️ À propos"):
-            st.markdown("""
-            **Assistant Académique JBK**
-            
-            Créé par: **Julien Banze Kandolo**
-            
-            Un assistant intelligent conçu pour l'Université 
-            Pédagogique de Lubumbashi (UPL).
-            
-            Powered by Groq API
-            """)
-        
-        return None
+        """,
+        unsafe_allow_html=True
+    )
+
+    return None
 
 
 def show_statistics() -> None:
@@ -389,89 +379,39 @@ def main() -> None:
         # Écran d'accueil
         if not st.session_state.messages:
             st.markdown("<h1 class='welcome-title'>Assistant Académique JBK</h1>", unsafe_allow_html=True)
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown("### 📚 Cours\nAide avec vos matières")
-            with col2:
-                st.markdown("### 💡 Concepts\nExplications claires")
-            with col3:
-                st.markdown("### 🎓 Académique\nRéférences et conseils")
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-        else:
-            # Afficher les messages
-            for msg in st.session_state.messages:
-                with st.chat_message(msg["role"], avatar="🧑‍🎓" if msg["role"] == "user" else "🤖"):
-                    st.markdown(msg["content"])
+            st.markdown("<p style='text-align:center;'>Posez votre question académique dans la zone de chat ci‑dessous.</p>", unsafe_allow_html=True)
+        
+        # Afficher la conversation existante
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"], avatar="🧑‍🎓" if msg["role"] == "user" else "🤖"):
+                st.markdown(msg["content"])
         
         # Signature
         st.markdown('<div class="input-signature">Julien Banze Kandolo • Assistant Académique JBK 🎓</div>', 
                    unsafe_allow_html=True)
         
         # Input utilisateur
-        if user_input := st.chat_input("Votre question..."):
+        if user_input := st.chat_input("Votre question académique..."):
             try:
-                # Valider l'entrée
                 user_input = validate_message(user_input)
-                
-                # Ajouter le message utilisateur
-                st.session_state.messages.append({
-                    "role": "user",
-                    "content": user_input
-                })
-                
+                st.session_state.messages.append({"role": "user", "content": user_input})
                 logger.info(f"Message utilisateur reçu: {len(user_input)} caractères")
-                
-                # Afficher le message utilisateur
-                with st.chat_message("user", avatar="🧑‍🎓"):
-                    st.markdown(user_input)
-                
-                # Obtenir la réponse
-                with st.chat_message("assistant", avatar="🤖"):
-                    try:
-                        client = get_groq_client()
-                        
-                        # Convertir en format API
-                        api_messages = [
-                            {"role": m["role"], "content": m["content"]}
-                            for m in st.session_state.messages[:-1]  # Exclure le dernier message de l'utilisateur qu'on vient d'ajouter
-                        ]
-                        api_messages.append({
-                            "role": "user",
-                            "content": user_input
-                        })
-                        
-                        # Obtenir la réponse
-                        response = send_groq_message(client, api_messages)
-                        
-                        # Ajouter la réponse
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": response
-                        })
-                        
-                        st.markdown(response)
-                        logger.info(f"Réponse générée: {len(response)} caractères")
-                    
-                    except ValueError as e:
-                        st.error(f"❌ Erreur de validation: {str(e)}")
-                        logger.error(f"Erreur de validation: {str(e)}")
-                        # Supprimer le dernier message utilisateur en cas d'erreur
-                        st.session_state.messages.pop()
-                    
-                    except Exception as e:
-                        st.error(f"❌ Erreur API: Impossible de générer une réponse")
-                        logger.error(f"Erreur API Groq: {str(e)}")
-                        # Supprimer le dernier message utilisateur en cas d'erreur
-                        st.session_state.messages.pop()
-                
-                st.rerun()
-            
+
+                # Envoi à l'API
+                client = get_groq_client()
+                api_messages = [
+                    {"role": m["role"], "content": m["content"]}
+                    for m in st.session_state.messages[:-1]
+                ]
+                api_messages.append({"role": "user", "content": user_input})
+
+                response = send_groq_message(client, api_messages)
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                logger.info(f"Réponse générée: {len(response)} caractères")
+
             except ValueError as e:
                 st.error(f"❌ {str(e)}")
                 logger.warning(f"Entrée invalide: {str(e)}")
-            
             except Exception as e:
                 st.error(f"❌ Une erreur s'est produite: {str(e)}")
                 logger.error(f"Erreur inattendue: {str(e)}")
