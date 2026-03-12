@@ -100,137 +100,98 @@ def configure_page() -> None:
         
         html, body, [data-testid="stAppViewContainer"] {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1a1f3a 50%, #0f172a 100%);
+            background: #0f172a;
             color: #e3e3e3;
         }
         
-        /* Conteneur principal compact */
+        /* Conteneur ultra-compact */
         div[data-testid="stAppViewContainer"] > .main > .block-container {
-            max-width: 850px;
+            max-width: 900px;
             margin: 0 auto;
-            padding-top: 1rem !important;
-            padding-bottom: 2rem;
+            padding: 0.5rem 1rem !important;
         }
         
         .welcome-title {
-            background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 50%, #ec4899 100%);
-            background-size: 300% auto;
+            background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            font-size: 3rem;
+            font-size: 2.2rem;
             font-weight: 800;
-            letter-spacing: -1px;
             text-align: center;
-            margin: 1.5rem 0 0.5rem 0;
-            animation: gradient_shift 8s ease infinite;
+            margin: 0.5rem 0 0.3rem 0;
+            letter-spacing: -0.5px;
         }
         
-        @keyframes gradient_shift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        
-        /* Messages de chat */
+        /* Messages de chat compacts */
         .stChatMessage {
-            background: rgba(30, 41, 59, 0.8) !important;
-            border: 1px solid rgba(75, 85, 170, 0.3) !important;
-            border-radius: 16px !important;
-            padding: 12px 16px !important;
-            backdrop-filter: blur(10px);
-            margin-bottom: 8px !important;
+            background: rgba(30, 41, 59, 0.6) !important;
+            border: 1px solid rgba(59, 130, 246, 0.2) !important;
+            border-radius: 12px !important;
+            padding: 10px 14px !important;
+            margin-bottom: 6px !important;
         }
         
         .stChatMessage[data-testid*="user"] {
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15)) !important;
-            border-color: rgba(59, 130, 246, 0.4) !important;
-            border-left: 4px solid #3b82f6 !important;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.1)) !important;
+            border-color: rgba(59, 130, 246, 0.5) !important;
+            border-left: 3px solid #3b82f6 !important;
         }
         
         .stChatMessage[data-testid*="assistant"] {
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.1)) !important;
-            border-color: rgba(34, 197, 94, 0.3) !important;
-            border-left: 4px solid #22c55e !important;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(59, 130, 246, 0.1)) !important;
+            border-color: rgba(34, 197, 94, 0.4) !important;
+            border-left: 3px solid #22c55e !important;
         }
         
-        /* Zone de texte invitée */
-        .stChatInputContainer {
-            margin-top: 1.5rem !important;
+        /* Zone de chat conteneur */
+        [data-testid="chatAvatarIcon"] { display: none; }
+        
+        /* Zone input */
+        .stChatInput {
+            margin-top: 0.8rem !important;
         }
         
         .stChatInput input {
-            background: rgba(30, 41, 59, 0.7) !important;
-            border: 1px solid rgba(75, 85, 170, 0.5) !important;
-            border-radius: 12px !important;
+            background: rgba(20, 28, 50, 0.8) !important;
+            border: 1px solid rgba(75, 85, 170, 0.4) !important;
+            border-radius: 10px !important;
             color: #e3e3e3 !important;
-            padding: 12px 16px !important;
-            font-size: 0.95rem !important;
-            transition: all 0.3s ease;
+            padding: 10px 14px !important;
+            font-size: 0.93rem !important;
         }
         
         .stChatInput input:focus {
             border-color: #3b82f6 !important;
-            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3) !important;
-            background: rgba(30, 41, 59, 0.9) !important;
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.25) !important;
         }
         
-        /* Signature */
+        .stChatInput input::placeholder {
+            color: #64748b !important;
+        }
+        
+        /* Signature minimale */
         .input-signature {
             text-align: center;
-            color: #64748b;
-            font-size: 0.75rem;
-            margin-top: 1.5rem;
+            color: #475569;
+            font-size: 0.7rem;
+            margin-top: 0.8rem;
             font-weight: 400;
-            letter-spacing: 0.5px;
         }
         
-        /* Boutons */
-        .stButton > button {
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important;
-            border: 1px solid rgba(59, 130, 246, 0.5) !important;
-            border-radius: 10px !important;
-            color: white !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease;
-            padding: 10px 20px !important;
-        }
-        
-        .stButton > button:hover {
-            background: linear-gradient(135deg, #06b6d4, #3b82f6) !important;
-            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4) !important;
-            transform: translateY(-2px);
-        }
-        
-        /* Messages d'erreur */
+        /* Erreurs */
         .stAlert {
             background: rgba(239, 68, 68, 0.1) !important;
-            border: 1px solid rgba(239, 68, 68, 0.3) !important;
-            border-radius: 12px !important;
-        }
-        
-        /* Scrollbar personnalisée */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: rgba(75, 85, 170, 0.5);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(75, 85, 170, 0.8);
+            border: 1px solid rgba(239, 68, 68, 0.4) !important;
+            border-radius: 10px !important;
+            padding: 8px 12px !important;
+            margin: 0.5rem 0 !important;
         }
         
         @media (max-width: 768px) {
-            .welcome-title { font-size: 2rem !important; }
+            .welcome-title { font-size: 1.8rem !important; }
             div[data-testid="stAppViewContainer"] > .main > .block-container {
-                padding-top: 0.5rem !important;
+                padding: 0.3rem 0.8rem !important;
             }
         }
     </style>
@@ -345,7 +306,7 @@ Sois concis mais complet et évite les digressions inutiles."""
 def send_groq_message(
     client: Groq,
     messages: list[dict],
-    model: str = "llama-3.3-70b-versatile"
+    model: str = "llama-3.1-8b-instant"
 ) -> str:
     """
     Envoie un message à l'API Groq et retourne la réponse.
@@ -376,8 +337,8 @@ def send_groq_message(
         response: ChatCompletion = client.chat.completions.create(
             model=model,
             messages=api_messages,
-            temperature=0.7,
-            max_tokens=1024,
+            temperature=0.6,
+            max_tokens=512,
         )
         
         reply = response.choices[0].message.content
@@ -421,8 +382,7 @@ def main() -> None:
         
         # Écran d'accueil
         if not st.session_state.messages:
-            st.markdown("<h1 class='welcome-title'>Assistant IA</h1>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align:center;'>Posez votre question ci‑dessous et l'IA répondra.</p>", unsafe_allow_html=True)
+            st.markdown("<h1 class='welcome-title'>Assistant Académique IA</h1>", unsafe_allow_html=True)
         
         # Afficher la conversation existante
         for msg in st.session_state.messages:
