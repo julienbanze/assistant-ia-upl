@@ -5,7 +5,7 @@ from pathlib import Path
 import PyPDF2
 
 # -----------------------------
-# CONFIGURATION DE LA PAGE
+# CONFIG PAGE
 # -----------------------------
 st.set_page_config(
     page_title="Assistant Académique IA",
@@ -30,13 +30,6 @@ text-align:center;
 border-radius:25px;
 border:2px solid gold;
 padding:12px;
-}
-.stChatInput button[title="Record audio"]{
-border-radius:50%;
-background:#FFD700;
-color:#111;
-width:50px;
-height:50px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -110,7 +103,7 @@ if "messages" not in st.session_state:
 # TITRE
 # -----------------------------
 st.title("🎓 Assistant Académique IA")
-st.write("Tapez votre question ou cliquez sur le micro pour parler. L’IA répondra en texte et en voix.")
+st.write("Parlez ou tapez votre question. L’IA répond automatiquement avec texte et voix.")
 
 # -----------------------------
 # HISTORIQUE CHAT
@@ -120,15 +113,10 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # -----------------------------
-# INPUT TEXTE + MICRO STYLE WHATSAPP / ChatGPT
+# QUESTION VOCALE
 # -----------------------------
-user_input = st.chat_input("Posez votre question...")  # zone texte avec micro intégré
-
-# -----------------------------
-# TRAITEMENT AUDIO (micro intégré)
-# -----------------------------
-if st.session_state.get("last_audio") is not None:
-    audio_input = st.session_state.pop("last_audio")
+audio_input = st.audio_input("🎤 Posez votre question avec votre voix")
+if audio_input is not None:
     transcription = client.audio.transcriptions.create(
         file=("audio.wav", audio_input.getvalue()),
         model="whisper-large-v3"
@@ -138,11 +126,12 @@ if st.session_state.get("last_audio") is not None:
     st.session_state.messages.append({"role":"user","content":question})
 
 # -----------------------------
-# TRAITEMENT TEXTE
+# QUESTION TEXTE
 # -----------------------------
-if user_input:
-    st.session_state.messages.append({"role":"user","content":user_input})
-    st.chat_message("user").markdown(user_input)
+prompt = st.chat_input("Ou tapez votre question")
+if prompt:
+    st.session_state.messages.append({"role":"user","content":prompt})
+    st.chat_message("user").markdown(prompt)
 
 # -----------------------------
 # GENERATION IA (texte + voix)
