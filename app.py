@@ -2,14 +2,11 @@ import streamlit as st
 from groq import Groq
 import logging
 from pathlib import Path
-from PIL import Image
-import pandas as pd
 import PyPDF2
 
 # -----------------------------
 # CONFIG PAGE
 # -----------------------------
-
 st.set_page_config(
     page_title="Assistant Académique IA",
     page_icon="🎓",
@@ -17,53 +14,41 @@ st.set_page_config(
 )
 
 # -----------------------------
-# DESIGN PROFESSIONNEL
+# DESIGN
 # -----------------------------
-
 st.markdown("""
 <style>
-
 .stApp{
 background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 color:white;
 }
-
 h1{
 color:#FFD700;
 text-align:center;
 }
-
 .stChatInput input{
 border-radius:25px;
 border:2px solid gold;
 padding:12px;
 }
-
-.sidebar .sidebar-content{
-background:#111;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------
 # LOGS
 # -----------------------------
-
 Path("logs").mkdir(exist_ok=True)
-
 logging.basicConfig(
-level=logging.INFO,
-handlers=[
-logging.FileHandler("logs/app.log"),
-logging.StreamHandler()
-]
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("logs/app.log"),
+        logging.StreamHandler()
+    ]
 )
 
 # -----------------------------
 # GROQ CLIENT
 # -----------------------------
-
 @st.cache_resource
 def init_client():
     return Groq(api_key=st.secrets["GROQ_API_KEY"])
@@ -73,206 +58,105 @@ client = init_client()
 # -----------------------------
 # PROMPT SYSTEME
 # -----------------------------
-
 SYSTEM_PROMPT = """
 Tu es un assistant académique expert.
-
 Tu aides les étudiants dans :
-
-informatique
-mathématiques
-électronique
-intelligence artificielle
-programmation
-
+informatique, mathématiques, électronique, intelligence artificielle, programmation.
 Réponds toujours en français.
 
-Structure tes réponses :
-
-Titre
-Explication claire
-Exemple
-Conclusion
+Règles supplémentaires :
+1. Si la question est impolie ou insultante, refuse poliment de répondre.
+2. Si la question mentionne "Julien Banze Kandolo" ou variantes, affiche un message respectueux pour le créateur.
+3. Reconnais et explique correctement les abréviations courantes (ex: UPL = Université Protestante de Lubumbashi).
+4. Tu peux répéter la question dans une autre langue (anglais ou espagnol) mais réponds toujours en français.
+5. Structure les réponses : Titre, Explication, Exemple, Conclusion.
 """
 
 # -----------------------------
 # SIDEBAR
 # -----------------------------
-
 with st.sidebar:
-
     st.title("🎓 Assistant IA")
-
     st.markdown("Développé par **Julien Banze Kandolo**")
-
     st.divider()
-
     if st.button("Nouvelle conversation"):
         st.session_state.messages=[]
         st.rerun()
 
-    st.divider()
-
-    uploaded_pdf = st.file_uploader(
-        "📄 Charger un PDF de cours",
-        type="pdf"
-    )
+    uploaded_pdf = st.file_uploader("📄 Charger un PDF de cours", type="pdf")
 
 # -----------------------------
 # EXTRACTION PDF
 # -----------------------------
-
 pdf_text=""
-
 if uploaded_pdf:
-
     reader = PyPDF2.PdfReader(uploaded_pdf)
-
     for page in reader.pages:
         pdf_text += page.extract_text()
-
     st.success("PDF chargé avec succès")
 
 # -----------------------------
-# MEMOIRE
+# MEMOIRE CHAT
 # -----------------------------
-
 if "messages" not in st.session_state:
     st.session_state.messages=[]
 
 # -----------------------------
 # TITRE
 # -----------------------------
-
 st.title("🎓 Assistant Académique IA")
-
-st.write("Posez vos questions académiques par texte ou par voix.")
+st.write("Posez vos questions académiques en français. L’IA peut répéter la question dans une autre langue et répondra en français.")
 
 # -----------------------------
-# HISTORIQUE CHAT
+# HISTORIQUE
 # -----------------------------
-
 for msg in st.session_state.messages:
-
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # -----------------------------
-# QUESTION VOCALE
-# -----------------------------
-
-audio = st.audio_input("🎤 Posez votre question avec votre voix")
-
-if audio is not None:
-
-    transcription = client.audio.transcriptions.create(
-        file=("audio.wav", audio.getvalue()),
-        model="whisper-large-v3"
-    )
-
-    voice_prompt = transcription.text
-
-    st.chat_message("user").markdown(voice_prompt)
-
-    st.session_state.messages.append({
-        "role":"user",
-        "content":voice_prompt
-    })
-
-# -----------------------------
 # QUESTION TEXTE
 # -----------------------------
-
-prompt = st.chat_input("Posez votre question académique...")
-
+prompt = st.chat_input("Posez votre question")
 if prompt:
-
-    st.session_state.messages.append({
-        "role":"user",
-        "content":prompt
-    })
-
+    st.session_state.messages.append({"role":"user","content":prompt})
     st.chat_message("user").markdown(prompt)
 
 # -----------------------------
-# GENERATION IA
+# GENERATION IA AVEC FILTRAGE ET RESTRICTIONS
 # -----------------------------
-
-if len(st.session_state.messages)>0 and st.session_state.messages[-1]["role"]=="user":
-
+if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"]=="user":
     with st.chat_message("assistant"):
-
-        placeholder = st.empty()
-
-        full_response=""
-
         messages=[{"role":"system","content":SYSTEM_PROMPT}]
-
-        if pdf_text!="":
-            messages.append({
-                "role":"system",
-                "content":"Voici un cours PDF fourni par l'utilisateur :"+pdf_text[:4000]
-            })
-
         for m in st.session_state.messages:
             messages.append(m)
 
-        stream = client.chat.completions.create(
-
+        # Envoi à Groq Llama
+        completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-
             messages=messages,
-
-            stream=True,
-
             temperature=0.2,
-
-            max_tokens=1500
+            max_tokens=1200
         )
 
-        for chunk in stream:
+        response = completion.choices[0].message.content
 
-            if chunk.choices[0].delta.content:
+        # AFFICHAGE TEXTE
+        st.markdown(response)
 
-                full_response += chunk.choices[0].delta.content
-
-                placeholder.markdown(full_response+"▌")
-
-        placeholder.markdown(full_response)
-
-        # -----------------------------
-        # REPONSE VOCALE
-        # -----------------------------
-
+        # VOIX AUTOMATIQUE
         st.markdown(f"""
         <script>
-
-        var text = `{full_response}`;
-
-        var speech = new SpeechSynthesisUtterance(text);
-
-        speech.lang = "fr-FR";
-
-        speech.rate = 1;
-
-        speech.pitch = 1;
-
+        var speech = new SpeechSynthesisUtterance(`{response}`);
+        speech.lang="fr-FR";
         window.speechSynthesis.speak(speech);
-
         </script>
         """, unsafe_allow_html=True)
 
-    st.session_state.messages.append({
-        "role":"assistant",
-        "content":full_response
-    })
+    st.session_state.messages.append({"role":"assistant","content":response})
 
 # -----------------------------
 # FOOTER
 # -----------------------------
-
 st.divider()
-
-st.markdown(
-"Assistant académique intelligent développé par **Julien Banze Kandolo**"
-)
+st.markdown("Assistant académique intelligent développé par **Julien Banze Kandolo**")
