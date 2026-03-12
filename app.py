@@ -1,9 +1,3 @@
-"""
-ASSISTANT ACADÉMIQUE IA
-Version Professionnelle
-Développé par Julien Banze Kandolo
-"""
-
 import streamlit as st
 from groq import Groq
 import logging
@@ -20,26 +14,25 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN ORIGINAL
+# DESIGN
 # -----------------------
 
 st.markdown("""
 <style>
 
-.main {background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #4a69bd 100%) !important}
-.stApp {background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #4a69bd 100%) !important}
+.main {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
+.stApp {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
 
-h1 {
-color: #ffd700 !important;
-text-align: center;
-font-size: 3em;
-text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+h1{
+color:#ffd700;
+text-align:center;
+font-size:2.8em;
 }
 
-.stChatInput input {
-border-radius: 25px !important;
-border: 2px solid #ffd700 !important;
-padding: 15px !important;
+.stChatInput input{
+border-radius:25px;
+border:2px solid #ffd700;
+padding:12px;
 }
 
 </style>
@@ -53,9 +46,8 @@ Path("logs").mkdir(exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/app.log'),
+        logging.FileHandler("logs/app.log"),
         logging.StreamHandler()
     ]
 )
@@ -79,22 +71,19 @@ client = init_client()
 # -----------------------
 
 SYSTEM_PROMPT = """
-Tu es un assistant académique très intelligent.
+Tu es un assistant académique intelligent.
 
 Réponds toujours en français.
 
 Structure ta réponse :
-
-1. Titre
-2. Introduction
-3. Explication claire
-4. Conclusion
-
-Explique comme un professeur.
+Titre
+Introduction
+Explication claire
+Conclusion
 """
 
 # -----------------------
-# MEMOIRE
+# MEMOIRE CHAT
 # -----------------------
 
 if "messages" not in st.session_state:
@@ -105,10 +94,10 @@ if "messages" not in st.session_state:
 # -----------------------
 
 st.markdown("## 🎓 Assistant Académique IA")
-st.markdown("Posez vos questions académiques ou utilisez le micro.")
+st.write("Posez vos questions académiques ou utilisez le micro.")
 
 # -----------------------
-# HISTORIQUE CHAT
+# HISTORIQUE
 # -----------------------
 
 for msg in st.session_state.messages:
@@ -123,8 +112,7 @@ audio = st.audio_input("🎤 Posez votre question avec votre voix")
 
 if audio is not None:
 
-    with st.spinner("Transcription de la voix..."):
-
+    try:
         transcription = client.audio.transcriptions.create(
             file=("audio.wav", audio.getvalue()),
             model="whisper-large-v3"
@@ -132,13 +120,16 @@ if audio is not None:
 
         voice_prompt = transcription.text.strip()
 
-        if voice_prompt != "":
+        if voice_prompt:
             st.chat_message("user").markdown(voice_prompt)
 
             st.session_state.messages.append({
                 "role": "user",
                 "content": voice_prompt
             })
+
+    except Exception:
+        st.warning("Erreur lors de la transcription vocale")
 
 # -----------------------
 # QUESTION TEXTE
@@ -166,16 +157,15 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
         placeholder = st.empty()
         full_response = ""
 
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages = [{"role":"system","content":SYSTEM_PROMPT}]
 
         for msg in st.session_state.messages:
-            if msg["content"].strip() != "":
-                messages.append(msg)
+            messages.append(msg)
 
         try:
 
             stream = client.chat.completions.create(
-                model="llama-3.1-70b-versatile",
+                model="llama-3.3-70b-versatile",
                 messages=messages,
                 stream=True,
                 temperature=0.2,
@@ -191,13 +181,11 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             placeholder.markdown(full_response)
 
         except Exception as e:
-
-            st.error("Erreur IA. Vérifiez votre clé API ou le modèle.")
-            st.write(e)
+            st.error(f"Erreur IA : {e}")
 
     st.session_state.messages.append({
-        "role": "assistant",
-        "content": full_response
+        "role":"assistant",
+        "content":full_response
     })
 
 # -----------------------
@@ -205,8 +193,4 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
 # -----------------------
 
 st.markdown("---")
-
-st.markdown("""
-Développé par **Julien Banze Kandolo**  
-Assistant Académique IA
-""")
+st.markdown("Développé par **Julien Banze Kandolo**")
