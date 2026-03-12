@@ -1,8 +1,12 @@
+# app.py
 import streamlit as st
 from groq import Groq
 import logging
 from pathlib import Path
+from PIL import Image
+import pandas as pd
 import PyPDF2
+import mysql.connector
 
 # -----------------------------
 # CONFIGURATION PAGE
@@ -14,7 +18,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# DESIGN
+# DESIGN PROFESSIONNEL
 # -----------------------------
 st.markdown("""
 <style>
@@ -22,14 +26,20 @@ st.markdown("""
 background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
 color:white;
 }
+
 h1{
 color:#FFD700;
 text-align:center;
 }
+
 .stChatInput input{
 border-radius:25px;
 border:2px solid gold;
 padding:12px;
+}
+
+.sidebar .sidebar-content{
+background:#111;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -47,12 +57,49 @@ logging.basicConfig(
 )
 
 # -----------------------------
-# INIT CLIENT GROQ
+# GROQ CLIENT
 # -----------------------------
 @st.cache_resource
 def init_client():
     return Groq(api_key=st.secrets["GROQ_API_KEY"])
+
 client = init_client()
+
+# -----------------------------
+# BASE DE DONNÉES XAMPP / MYSQL
+# -----------------------------
+def connect_db():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",        # utilisateur XAMPP
+        password="",        # mot de passe XAMPP par défaut
+        database="assistant_ia"
+    )
+
+def save_chat_to_db(user_question, ai_response):
+    db = connect_db()
+    cursor = db.cursor()
+    sql = "INSERT INTO chat_history (user_question, ai_response) VALUES (%s, %s)"
+    cursor.execute(sql, (user_question, ai_response))
+    db.commit()
+    cursor.close()
+    db.close()
+
+# -----------------------------
+# FILTRAGE AUTOMATIQUE DES QUESTIONS
+# -----------------------------
+def is_question_valid(question):
+    bad_words = ["insulte", "mauvais", "polémique"]  # mots interdits
+    forbidden_subjects = ["Julien Banze Kandolo"]     # sujets sensibles
+    question_lower = question.lower()
+    
+    if any(word in question_lower for word in bad_words):
+        return False, "⚠️ Question refusée : merci de poser une question académique appropriée."
+    
+    if any(subject.lower() in question_lower for subject in forbidden_subjects):
+        return False, "⚠️ Cette question concerne le créateur de l'IA. Merci de poser une question académique."
+    
+    return True, ""
 
 # -----------------------------
 # PROMPT SYSTÈME
@@ -60,15 +107,17 @@ client = init_client()
 SYSTEM_PROMPT = """
 Tu es un assistant académique expert.
 Tu aides les étudiants dans :
-informatique, mathématiques, électronique, intelligence artificielle, programmation.
+informatique
+mathématiques
+électronique
+intelligence artificielle
+programmation
 Réponds toujours en français.
-
-Règles :
-1. Si la question est impolie ou hors sujet, refuse poliment (l'IA le détecte).
-2. Si on mentionne "Julien Banze Kandolo" ou variantes, affiche un message respectueux pour le créateur.
-3. Reconnais et explique les abréviations (ex: UPL = Université Protestante de Lubumbashi).
-4. Tu peux répéter la question dans une autre langue mais réponds toujours en français.
-5. Structure les réponses : Titre, Explication, Exemple, Conclusion.
+Structure tes réponses :
+Titre
+Explication claire
+Exemple
+Conclusion
 """
 
 # -----------------------------
@@ -78,15 +127,21 @@ with st.sidebar:
     st.title("🎓 Assistant IA")
     st.markdown("Développé par **Julien Banze Kandolo**")
     st.divider()
+    
     if st.button("Nouvelle conversation"):
-        st.session_state.messages=[]
+        st.session_state.messages = []
         st.rerun()
-    uploaded_pdf = st.file_uploader("📄 Charger un PDF de cours", type="pdf")
+
+    st.divider()
+    uploaded_pdf = st.file_uploader(
+        "📄 Charger un PDF de cours",
+        type="pdf"
+    )
 
 # -----------------------------
 # EXTRACTION PDF
 # -----------------------------
-pdf_text=""
+pdf_text = ""
 if uploaded_pdf:
     reader = PyPDF2.PdfReader(uploaded_pdf)
     for page in reader.pages:
@@ -94,16 +149,16 @@ if uploaded_pdf:
     st.success("PDF chargé avec succès")
 
 # -----------------------------
-# MÉMOIRE CHAT
+# MÉMOIRE SESSION
 # -----------------------------
 if "messages" not in st.session_state:
-    st.session_state.messages=[]
+    st.session_state.messages = []
 
 # -----------------------------
 # TITRE
 # -----------------------------
 st.title("🎓 Assistant Académique IA")
-st.write("Parlez ou tapez votre question. L’IA répond automatiquement avec texte et voix.")
+st.write("Posez vos questions académiques par texte ou par voix.")
 
 # -----------------------------
 # HISTORIQUE CHAT
@@ -115,56 +170,84 @@ for msg in st.session_state.messages:
 # -----------------------------
 # QUESTION VOCALE
 # -----------------------------
-audio_input = st.audio_input("🎤 Posez votre question avec votre voix")
-if audio_input is not None:
+audio = st.audio_input("🎤 Posez votre question avec votre voix")
+if audio is not None:
     transcription = client.audio.transcriptions.create(
-        file=("audio.wav", audio_input.getvalue()),
+        file=("audio.wav", audio.getvalue()),
         model="whisper-large-v3"
     )
-    question = transcription.text
-    st.chat_message("user").markdown(question)
-    st.session_state.messages.append({"role":"user","content":question})
+    voice_prompt = transcription.text
+    st.chat_message("user").markdown(voice_prompt)
+    st.session_state.messages.append({
+        "role": "user",
+        "content": voice_prompt
+    })
 
 # -----------------------------
 # QUESTION TEXTE
 # -----------------------------
-prompt = st.chat_input("Ou tapez votre question")
+prompt = st.chat_input("Posez votre question académique...")
 if prompt:
-    st.session_state.messages.append({"role":"user","content":prompt})
-    st.chat_message("user").markdown(prompt)
+    valid, message = is_question_valid(prompt)
+    if not valid:
+        st.chat_message("assistant").markdown(message)
+    else:
+        st.session_state.messages.append({"role":"user","content":prompt})
+        st.chat_message("user").markdown(prompt)
 
 # -----------------------------
-# GENERATION IA (texte + voix)
+# GENERATION IA
 # -----------------------------
-if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"]=="user":
-    with st.chat_message("assistant"):
-        messages=[{"role":"system","content":SYSTEM_PROMPT}]
-        if pdf_text!="":
-            messages.append({"role":"system","content":"Cours fourni par l'utilisateur :"+pdf_text[:4000]})
-        for m in st.session_state.messages:
-            messages.append(m)
+if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
+    last_question = st.session_state.messages[-1]["content"]
+    
+    valid, message = is_question_valid(last_question)
+    if valid:
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            full_response = ""
+            
+            messages = [{"role":"system","content":SYSTEM_PROMPT}]
+            if pdf_text != "":
+                messages.append({
+                    "role":"system",
+                    "content":"Voici un cours PDF fourni par l'utilisateur :" + pdf_text[:4000]
+                })
+            for m in st.session_state.messages:
+                messages.append(m)
 
-        completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            temperature=0.2,
-            max_tokens=1200
-        )
-        response = completion.choices[0].message.content
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=messages,
+                stream=True,
+                temperature=0.2,
+                max_tokens=1500
+            )
 
-        # Affichage texte
-        st.markdown(response)
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    full_response += chunk.choices[0].delta.content
+                    placeholder.markdown(full_response + "▌")
 
-        # Voix automatique
-        st.markdown(f"""
-        <script>
-        var speech = new SpeechSynthesisUtterance(`{response}`);
-        speech.lang="fr-FR";
-        window.speechSynthesis.speak(speech);
-        </script>
-        """, unsafe_allow_html=True)
+            placeholder.markdown(full_response)
+            
+            # Réponse vocale
+            st.markdown(f"""
+            <script>
+            var text = `{full_response}`;
+            var speech = new SpeechSynthesisUtterance(text);
+            speech.lang = "fr-FR";
+            speech.rate = 1;
+            speech.pitch = 1;
+            window.speechSynthesis.speak(speech);
+            </script>
+            """, unsafe_allow_html=True)
 
-        st.session_state.messages.append({"role":"assistant","content":response})
+            # Sauvegarde dans DB
+            save_chat_to_db(last_question, full_response)
+            
+            # Sauvegarde session
+            st.session_state.messages.append({"role":"assistant","content":full_response})
 
 # -----------------------------
 # FOOTER
