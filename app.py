@@ -52,7 +52,6 @@ logging.basicConfig(
 @st.cache_resource
 def init_client():
     return Groq(api_key=st.secrets["GROQ_API_KEY"])
-
 client = init_client()
 
 # -----------------------------
@@ -65,7 +64,7 @@ informatique, mathématiques, électronique, intelligence artificielle, programm
 Réponds toujours en français.
 
 Règles supplémentaires :
-1. Si la question est impolie ou insultante, refuse poliment de répondre.
+1. Si la question est impolie ou insultante, refuse poliment.
 2. Si la question mentionne "Julien Banze Kandolo" ou variantes, affiche un message respectueux pour le créateur.
 3. Reconnais et explique correctement les abréviations courantes (ex: UPL = Université Protestante de Lubumbashi).
 4. Tu peux répéter la question dans une autre langue (anglais ou espagnol) mais réponds toujours en français.
@@ -82,7 +81,6 @@ with st.sidebar:
     if st.button("Nouvelle conversation"):
         st.session_state.messages=[]
         st.rerun()
-
     uploaded_pdf = st.file_uploader("📄 Charger un PDF de cours", type="pdf")
 
 # -----------------------------
@@ -123,28 +121,80 @@ if prompt:
     st.chat_message("user").markdown(prompt)
 
 # -----------------------------
-# GENERATION IA AVEC FILTRAGE ET RESTRICTIONS
+# MODE APPEL VOCAL AMÉLIORÉ
 # -----------------------------
-if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"]=="user":
+st.divider()
+st.subheader("📞 Mode appel vocal")
+if "call_mode" not in st.session_state:
+    st.session_state.call_mode=False
+
+col1,col2=st.columns(2)
+with col1:
+    if st.button("📞 Démarrer appel"):
+        st.session_state.call_mode=True
+with col2:
+    if st.button("❌ Terminer appel"):
+        st.session_state.call_mode=False
+
+if st.session_state.call_mode:
+    st.info("🎤 Parlez avec le micro et validez l'enregistrement")
+
+    audio_call = st.audio_input("Votre question")
+    if audio_call is not None:
+        transcription = client.audio.transcriptions.create(
+            file=("audio.wav", audio_call.getvalue()),
+            model="whisper-large-v3"
+        )
+        question = transcription.text
+        st.write("🧑 Vous :", question)
+
+        # Vérification créateur
+        if "julien banze kandolo" in question.lower():
+            rep = "🙏 Ce projet a été créé par Julien Banze Kandolo, merci de le respecter !"
+        else:
+            # Génération IA
+            messages=[{"role":"system","content":SYSTEM_PROMPT},{"role":"user","content":question}]
+            if pdf_text!="":
+                messages.append({"role":"system","content":"Cours fourni par l'utilisateur :"+pdf_text[:4000]})
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=messages,
+                temperature=0.2,
+                max_tokens=800
+            )
+            rep = completion.choices[0].message.content
+
+        st.write("🤖 IA :", rep)
+
+        # VOIX IA
+        st.markdown(f"""
+        <script>
+        var speech = new SpeechSynthesisUtterance(`{rep}`);
+        speech.lang="fr-FR";
+        window.speechSynthesis.speak(speech);
+        </script>
+        """, unsafe_allow_html=True)
+
+        # Ajouter à la mémoire
+        st.session_state.messages.append({"role":"assistant","content":rep})
+
+# -----------------------------
+# GENERATION IA TEXTE + VOIX (non appel)
+# -----------------------------
+if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"]=="user" and not st.session_state.call_mode:
     with st.chat_message("assistant"):
         messages=[{"role":"system","content":SYSTEM_PROMPT}]
         for m in st.session_state.messages:
             messages.append(m)
-
-        # Envoi à Groq Llama
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=messages,
             temperature=0.2,
             max_tokens=1200
         )
-
         response = completion.choices[0].message.content
-
-        # AFFICHAGE TEXTE
         st.markdown(response)
-
-        # VOIX AUTOMATIQUE
+        # VOIX IA
         st.markdown(f"""
         <script>
         var speech = new SpeechSynthesisUtterance(`{response}`);
@@ -152,8 +202,7 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"]=
         window.speechSynthesis.speak(speech);
         </script>
         """, unsafe_allow_html=True)
-
-    st.session_state.messages.append({"role":"assistant","content":response})
+        st.session_state.messages.append({"role":"assistant","content":response})
 
 # -----------------------------
 # FOOTER
