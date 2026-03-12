@@ -102,6 +102,13 @@ def configure_page() -> None:
             color: #e3e3e3;
         }
         
+        /* centre le contenu principal et limite sa largeur */
+        div[data-testid="stAppViewContainer"] > .main > .block-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding-top: 2rem;
+        }
+        
         .welcome-title {
             background: linear-gradient(90deg, #4f46e5, #7c3aed, #ec4899, #4f46e5);
             background-size: 300% auto;
@@ -117,7 +124,12 @@ def configure_page() -> None:
         
         @keyframes grad_flow { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
         
-        .stChatMessage { background: #1a1f3a; border-left: 3px solid #4f46e5; border-radius: 8px; }
+        .stChatMessage { 
+            background: #1a1f3a; 
+            border-left: 3px solid #4f46e5; 
+            border-radius: 12px; 
+            padding: 8px;
+        }
         
         .input-signature { text-align: center; color: #8ab4f8; font-size: 0.85rem; margin-bottom: 1rem; font-weight: 500; }
         
@@ -145,38 +157,46 @@ def configure_page() -> None:
 def get_groq_client() -> Optional[Groq]:
     """
     Initialise et retourne le client Groq.
-    
+
+    Si l'appel standard échoue à cause d'un argument `proxies` non supporté
+    (TypeError), on réessaie en fournissant explicitement un `httpx.Client`
+    dépourvu de ce paramètre.
+
     Returns:
         Groq: Client Groq configuré
-        
+
     Raises:
-        ValueError: Si la clé API est manquante
+        ValueError: Si la clé API est manquante ou invalide
+        Exception: Tout autre problème d'initialisation
     """
+    api_key = st.secrets.get("GROQ_API_KEY")
+
+    if not api_key:
+        logger.error("GROQ_API_KEY manquante dans les secrets")
+        raise ValueError("GROQ_API_KEY manquante")
+
+    if len(api_key) < 10:
+        logger.error("GROQ_API_KEY invalide")
+        raise ValueError("GROQ_API_KEY invalide")
+
     try:
-        api_key = st.secrets.get("GROQ_API_KEY")
-        
-        if not api_key:
-            logger.error("GROQ_API_KEY manquante dans les secrets")
-            raise ValueError("GROQ_API_KEY manquante")
-        
-        if len(api_key) < 10:
-            logger.error("GROQ_API_KEY invalide")
-            raise ValueError("GROQ_API_KEY invalide")
-        
-        try:
-            client = Groq(api_key=api_key)
-        except TypeError as e:
-            # certains environnements transmettent une clé `proxies` à httpx qui
-            # n'est pas acceptée par la version installée -> contournement
-            if "proxies" in str(e):
-                logger.warning("Erreur proxies lors de l'init Groq, création d'un http_client vide")
-                http_client = httpx.Client(proxies={})
-                client = Groq(api_key=api_key, http_client=http_client)
-            else:
-                raise
-        logger.info("Client Groq initialisé avec succès")
+        client = Groq(api_key=api_key)
+        logger.info("Client Groq initialisé sans http_client personnalisé")
         return client
-    
+
+    except TypeError as e:
+        if "proxies" in str(e):
+            logger.warning(
+                "Erreur proxies lors de l'init Groq, réessai avec httpx.Client simple"
+            )
+            http_client = httpx.Client()
+            client = Groq(api_key=api_key, http_client=http_client)
+            logger.info("Client Groq initialisé avec http_client personnalisé")
+            return client
+        else:
+            # erreur non anticipée, relancer
+            logger.error(f"TypeError inattendue lors de l'init Groq: {e}")
+            raise
     except Exception as e:
         logger.error(f"Erreur lors de l'initialisation Groq: {str(e)}")
         raise
