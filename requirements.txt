@@ -1,5 +1,2 @@
 streamlit
 groq
-openai-whisper
-pydub
-ffmpeg-python
