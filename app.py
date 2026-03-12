@@ -5,7 +5,7 @@ from pathlib import Path
 import PyPDF2
 
 # -----------------------------
-# CONFIG PAGE
+# CONFIGURATION DE LA PAGE
 # -----------------------------
 st.set_page_config(
     page_title="Assistant Académique IA",
@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # -----------------------------
-# DESIGN
+# DESIGN PROFESSIONNEL
 # -----------------------------
 st.markdown("""
 <style>
@@ -47,7 +47,7 @@ logging.basicConfig(
 )
 
 # -----------------------------
-# GROQ CLIENT
+# INIT CLIENT GROQ
 # -----------------------------
 @st.cache_resource
 def init_client():
@@ -55,7 +55,7 @@ def init_client():
 client = init_client()
 
 # -----------------------------
-# PROMPT SYSTEME
+# PROMPT SYSTÈME
 # -----------------------------
 SYSTEM_PROMPT = """
 Tu es un assistant académique expert.
@@ -63,11 +63,11 @@ Tu aides les étudiants dans :
 informatique, mathématiques, électronique, intelligence artificielle, programmation.
 Réponds toujours en français.
 
-Règles supplémentaires :
-1. Si la question est impolie ou insultante, refuse poliment.
-2. Si la question mentionne "Julien Banze Kandolo" ou variantes, affiche un message respectueux pour le créateur.
-3. Reconnais et explique correctement les abréviations courantes (ex: UPL = Université Protestante de Lubumbashi).
-4. Tu peux répéter la question dans une autre langue (anglais ou espagnol) mais réponds toujours en français.
+Règles :
+1. Refuse poliment les questions impolies ou insultantes.
+2. Si on mentionne "Julien Banze Kandolo" ou variantes, affiche un message respectueux pour le créateur.
+3. Reconnais et explique les abréviations (ex: UPL = Université Protestante de Lubumbashi).
+4. Tu peux répéter la question dans une autre langue mais réponds toujours en français.
 5. Structure les réponses : Titre, Explication, Exemple, Conclusion.
 """
 
@@ -94,7 +94,7 @@ if uploaded_pdf:
     st.success("PDF chargé avec succès")
 
 # -----------------------------
-# MEMOIRE CHAT
+# MÉMOIRE CHAT
 # -----------------------------
 if "messages" not in st.session_state:
     st.session_state.messages=[]
@@ -103,19 +103,31 @@ if "messages" not in st.session_state:
 # TITRE
 # -----------------------------
 st.title("🎓 Assistant Académique IA")
-st.write("Parlez ou tapez votre question. L’IA répondra automatiquement avec texte et voix.")
+st.write("Tapez votre question ou utilisez le micro. L’IA répond en texte et en voix.")
 
 # -----------------------------
-# HISTORIQUE
+# HISTORIQUE CHAT
 # -----------------------------
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # -----------------------------
-# QUESTION VOCALE (style WhatsApp)
+# ZONE TEXTE + AUDIO (comme ChatGPT)
 # -----------------------------
-audio_input = st.audio_input("🎤 Posez votre question avec votre voix")
+col_text, col_audio = st.columns([3,1])
+
+# --- Texte
+with col_text:
+    prompt = st.chat_input("Posez votre question")
+
+# --- Audio
+with col_audio:
+    audio_input = st.audio_input("🎤")
+
+# -----------------------------
+# TRAITEMENT AUDIO
+# -----------------------------
 if audio_input is not None:
     transcription = client.audio.transcriptions.create(
         file=("audio.wav", audio_input.getvalue()),
@@ -125,11 +137,18 @@ if audio_input is not None:
     st.chat_message("user").markdown(question)
     st.session_state.messages.append({"role":"user","content":question})
 
-    # Vérification créateur
-    if "julien banze kandolo" in question.lower():
-        response = "🙏 Ce projet a été créé par Julien Banze Kandolo, merci de le respecter !"
-    else:
-        # Préparer les messages pour IA
+# -----------------------------
+# TRAITEMENT TEXTE
+# -----------------------------
+if prompt:
+    st.session_state.messages.append({"role":"user","content":prompt})
+    st.chat_message("user").markdown(prompt)
+
+# -----------------------------
+# GENERATION IA (texte + voix)
+# -----------------------------
+if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"]=="user":
+    with st.chat_message("assistant"):
         messages=[{"role":"system","content":SYSTEM_PROMPT}]
         if pdf_text!="":
             messages.append({"role":"system","content":"Cours fourni par l'utilisateur :"+pdf_text[:4000]})
@@ -144,50 +163,19 @@ if audio_input is not None:
         )
         response = completion.choices[0].message.content
 
-    # Affichage texte et lecture voix
-    st.chat_message("assistant").markdown(response)
-    st.markdown(f"""
-    <script>
-    var speech = new SpeechSynthesisUtterance(`{response}`);
-    speech.lang="fr-FR";
-    window.speechSynthesis.speak(speech);
-    </script>
-    """, unsafe_allow_html=True)
-    st.session_state.messages.append({"role":"assistant","content":response})
+        # Affichage texte
+        st.markdown(response)
 
-# -----------------------------
-# QUESTION TEXTE
-# -----------------------------
-prompt = st.chat_input("Ou tapez votre question")
-if prompt:
-    st.session_state.messages.append({"role":"user","content":prompt})
-    st.chat_message("user").markdown(prompt)
+        # Voix automatique
+        st.markdown(f"""
+        <script>
+        var speech = new SpeechSynthesisUtterance(`{response}`);
+        speech.lang="fr-FR";
+        window.speechSynthesis.speak(speech);
+        </script>
+        """, unsafe_allow_html=True)
 
-    # Génération IA
-    messages=[{"role":"system","content":SYSTEM_PROMPT}]
-    if pdf_text!="":
-        messages.append({"role":"system","content":"Cours fourni par l'utilisateur :"+pdf_text[:4000]})
-    for m in st.session_state.messages:
-        messages.append(m)
-
-    completion = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=messages,
-        temperature=0.2,
-        max_tokens=1200
-    )
-    response = completion.choices[0].message.content
-
-    # Affichage texte et voix
-    st.chat_message("assistant").markdown(response)
-    st.markdown(f"""
-    <script>
-    var speech = new SpeechSynthesisUtterance(`{response}`);
-    speech.lang="fr-FR";
-    window.speechSynthesis.speak(speech);
-    </script>
-    """, unsafe_allow_html=True)
-    st.session_state.messages.append({"role":"assistant","content":response})
+        st.session_state.messages.append({"role":"assistant","content":response})
 
 # -----------------------------
 # FOOTER
