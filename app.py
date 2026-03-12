@@ -113,6 +113,25 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # -----------------------------
+# FONCTION DE FILTRAGE
+# -----------------------------
+def filtrer_question(texte):
+    mots_interdits = ["pute", "merde", "idiot", "stupide"]  # exemple insultes
+    mots_sujet = ["informatique","math","electronique","ia","intelligence artificielle","programmation","python","java","html","chimie","physique"]
+    
+    texte_lower = texte.lower()
+    
+    # Vérifie insultes
+    if any(m in texte_lower for m in mots_interdits):
+        return "Désolé, je ne peux pas répondre à ce type de question."
+    
+    # Vérifie sujet académique
+    if not any(m in texte_lower for m in mots_sujet):
+        return "Désolé, cette question ne correspond pas au domaine académique que je couvre."
+    
+    return None  # Ok pour envoyer à l'IA
+
+# -----------------------------
 # QUESTION VOCALE
 # -----------------------------
 audio_input = st.audio_input("🎤 Posez votre question avec votre voix")
@@ -123,7 +142,13 @@ if audio_input is not None:
     )
     question = transcription.text
     st.chat_message("user").markdown(question)
-    st.session_state.messages.append({"role":"user","content":question})
+    
+    # Filtrage
+    refus = filtrer_question(question)
+    if refus:
+        st.chat_message("assistant").markdown(refus)
+    else:
+        st.session_state.messages.append({"role":"user","content":question})
 
 # -----------------------------
 # QUESTION TEXTE
@@ -132,6 +157,12 @@ prompt = st.chat_input("Ou tapez votre question")
 if prompt:
     st.session_state.messages.append({"role":"user","content":prompt})
     st.chat_message("user").markdown(prompt)
+
+    # Filtrage
+    refus = filtrer_question(prompt)
+    if refus:
+        st.chat_message("assistant").markdown(refus)
+        st.session_state.messages.pop()  # Supprime la question de l'historique si refusée
 
 # -----------------------------
 # GENERATION IA (texte + voix)
