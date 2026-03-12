@@ -1,8 +1,9 @@
 """
-Assistant Académique IA - Production-Ready Application
+Assistant IA - Production-Ready Application
 
-Une application Streamlit professionnelle pour l'assistance académique 
-à l'Université Protestante de Lubumbashi (UPL).
+Une application Streamlit professionnelle fournissant une interface chat
+pour interroger un modèle d'IA. Conçue pour être extensible, robuste et
+facile à adapter.
 
 Architecture:
 - Gestion d'erreurs robuste
@@ -80,18 +81,15 @@ logger = setup_logging()
 # ============================================================================
 
 def configure_page() -> None:
-    """Configure la page Streamlit avec tous les styles.
+    """Configure la page Streamlit avec le style global.
 
-    **Remarque**: cette fonction ne doit plus être décorée avec `@st.cache_*` car
-    `st.set_page_config` ne peut être appelé qu'une seule fois par page. Les
-    décorateurs de cache peuvent réexécuter la fonction lors des reruns et
-    provoquer l'erreur critique signalée par l'utilisateur.
+    Cette fonction est appelée une seule fois, donc pas de décorateur de cache.
     """
     st.set_page_config(
-        page_title="Assistant Académique JBK | UPL",
-        page_icon="🎓",
+        page_title="Assistant IA",
+        page_icon="🤖",
         layout="wide",
-        initial_sidebar_state="expanded"
+        initial_sidebar_state="collapsed"
     )
     
     st.markdown("""
@@ -103,23 +101,6 @@ def configure_page() -> None:
             background-color: #0a0e27 !important;
             color: #e3e3e3;
         }
-        
-        .jbk-card {
-            padding: 20px;
-            background: linear-gradient(145deg, #1a1f3a, #0f1220);
-            border-radius: 12px;
-            border: 1px solid #2d3748;
-            text-align: center;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
-        }
-        
-        .jbk-card:hover { border-color: #4f46e5; box-shadow: 0 8px 12px rgba(79, 70, 229, 0.2); }
-        
-        .jbk-title { font-size: 0.75rem; color: #8ab4f8; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin: 0; }
-        
-        .jbk-name { font-size: 1.3rem; font-weight: 700; color: #8ab4f8; margin: 0.5rem 0 0 0; }
         
         .welcome-title {
             background: linear-gradient(90deg, #4f46e5, #7c3aed, #ec4899, #4f46e5);
@@ -146,7 +127,6 @@ def configure_page() -> None:
         
         @media (max-width: 768px) {
             .welcome-title { font-size: 1.8rem !important; }
-            .jbk-name { font-size: 1rem !important; }
             .stChatMessage { font-size: 0.9rem; }
             .input-signature { font-size: 0.75rem; }
             .stButton > button { font-size: 0.9rem; }
@@ -228,35 +208,28 @@ def validate_message(content: str) -> str:
     lowered = content.lower()
     for word in bad_words:
         if word in lowered.split():
-            raise ValueError("Veuillez rester poli dans vos demandes — je suis un assistant académique.")
+            raise ValueError("Veuillez rester poli dans vos demandes — je suis un assistant IA.")
     
     return content
 
 
 def get_system_prompt() -> str:
-    """Retourne le prompt système pour l'assistant.
+    """Retourne le prompt système pour l'assistant générique.
 
-    Le prompt guide l'IA vers un comportement pédagogique, courtois et poli. Si l'utilisateur
-    envoie des propos grossiers ou déplacés, l'assistant doit répondre calmement qu'il n'est
-    pas conçu pour ce type de requête et encourager le respect.
+    Le modèle doit se comporter comme une IA puissante, claire et polie. Si l'utilisateur
+    est impoli, répondre calmement qu'il préfère un langage respectueux.
     """
-    return """Tu es un assistant académique expert pour l'Université Protestante de Lubumbashi (UPL).
+    return """Tu es un assistant IA généraliste, performant et courtois.
 
 Tu dois:
-1. Aider les étudiants avec leurs cours et devoirs
-2. Expliquer les concepts complexes de manière claire et pédagogique
-3. Fournir des références académiques quand c'est pertinent
-4. Encourager la réflexion critique et individuelle
-5. Respecter l'intégrité académique
+1. Aider avec des questions techniques, pratiques ou générales
+2. Expliquer les concepts clairement et de manière structurée
+3. Fournir des références lorsque c'est pertinent
+4. Rester respectueux et professionnel en toutes circonstances
+5. Encourager la réflexion autonome
 
-Reste toujours respectueux envers l'utilisateur et réponds de façon courtoise. Si l'utilisateur pose une
-question impolie, dénigrante ou hors sujet, explique calmement que tu n'es pas conçu pour ce type de requête
-et demande de rester poli.
-
-Réponds toujours de manière professionnelle.
-Si la question est en français, réponds en français.
-Fournis des réponses structurées et bien organisées.
-Sois concis mais complet."""
+Réponds en français si la question est en français, sinon en anglais.
+Sois concis mais complet et évite les digressions inutiles."""
 
 
 def send_groq_message(
@@ -321,53 +294,8 @@ def initialize_session_state() -> None:
 # INTERFACE UTILISATEUR
 # ============================================================================
 
-def render_sidebar() -> Optional[str]:
-    """Affiche la barre latérale minimaliste et retourne l'action sélectionnée."""
-
-    st.sidebar.markdown("# Menu")
-
-    # boutons principaux alignés en colonne, style simple comme Gemini
-    if st.sidebar.button("➕ Nouvelle session", use_container_width=True):
-        logger.info("Nouvelle session demandée")
-        return "new_session"
-
-    if st.sidebar.button("📊 Statistiques", use_container_width=True):
-        logger.info("Statistiques demandées")
-        return "stats"
-
-    st.sidebar.markdown("---")
-
-    st.sidebar.markdown(
-        """
-        <div style='padding:10px; border:1px solid #444; border-radius:8px; background:#1a1f3a;'>
-        <strong>Assistant Académique IA</strong><br/>
-        Développé par : <em>Julien Banze Kandolo</em><br/>
-        <small>Pour plus d'informations sur l'UPL, visitez :</small><br/>
-        <a href='https://upl.ac.ug' style='color:#8ab4f8;'>Université Protestante de Lubumbashi (UPL)</a><br/>
-        Powered by <strong>Groq API</strong>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    return None
 
 
-def show_statistics() -> None:
-    """Affiche les statistiques de la conversation."""
-    if not st.session_state.messages:
-        st.info("Aucun message pour le moment")
-        return
-    
-    user_msgs = sum(1 for m in st.session_state.messages if m["role"] == "user")
-    assistant_msgs = sum(1 for m in st.session_state.messages if m["role"] == "assistant")
-    total_chars = sum(len(m["content"]) for m in st.session_state.messages)
-    
-    with st.sidebar:
-        st.metric("Messages totaux", len(st.session_state.messages))
-        st.metric("Vos messages", user_msgs)
-        st.metric("Réponses", assistant_msgs)
-        st.metric("Caractères total", f"{total_chars:,}")
 
 
 # ============================================================================
@@ -381,20 +309,10 @@ def main() -> None:
         configure_page()
         initialize_session_state()
         
-        # Barre latérale
-        sidebar_action = render_sidebar()
-        
-        if sidebar_action == "new_session":
-            st.session_state.messages = []
-            st.rerun()
-        
-        elif sidebar_action == "stats":
-            show_statistics()
-        
         # Écran d'accueil
         if not st.session_state.messages:
-            st.markdown("<h1 class='welcome-title'>Assistant Académique IA</h1>", unsafe_allow_html=True)
-            st.markdown("<p style='text-align:center;'>Posez votre question académique dans la zone de chat ci‑dessous.</p>", unsafe_allow_html=True)
+            st.markdown("<h1 class='welcome-title'>Assistant IA</h1>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align:center;'>Posez votre question ci‑dessous et l'IA répondra.</p>", unsafe_allow_html=True)
         
         # Afficher la conversation existante
         for msg in st.session_state.messages:
@@ -402,11 +320,10 @@ def main() -> None:
                 st.markdown(msg["content"])
         
         # Signature
-        st.markdown('<div class="input-signature">Julien Banze Kandolo • Assistant Académique JBK 🎓</div>', 
-                   unsafe_allow_html=True)
+        st.markdown('<div class="input-signature">Développé par Julien Banze Kandolo</div>', unsafe_allow_html=True)
         
         # Input utilisateur
-        if user_input := st.chat_input("Votre question académique..."):
+        if user_input := st.chat_input("Posez votre question ici..."):
             try:
                 user_input = validate_message(user_input)
                 st.session_state.messages.append({"role": "user", "content": user_input})
@@ -439,8 +356,6 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
-# Les blocs supplémentaires situés ici étaient des vestiges d'un essai
-# antérieur et exécutaient d'autres commandes Streamlit en dehors de la
-# logique principale. Ils ont été supprimés pour éviter les reruns inattendus
-# et l'erreur de configuration de la page. La seule entrée utilisateur
-# nécessaire est déjà gérée dans la fonction `main()`.
+# Anciennes tentatives ou widgets superflus ont été retirés afin de
+# garder l'interface aussi propre et réactive que possible. Toute interaction
+# se fait désormais via la zone de chat gérée par la fonction `main()`.
