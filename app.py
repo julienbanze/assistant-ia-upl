@@ -78,9 +78,14 @@ logger = setup_logging()
 # CONFIGURATION DE LA PAGE
 # ============================================================================
 
-@st.cache_resource
 def configure_page() -> None:
-    """Configure la page Streamlit avec tous les styles."""
+    """Configure la page Streamlit avec tous les styles.
+
+    **Remarque**: cette fonction ne doit plus être décorée avec `@st.cache_*` car
+    `st.set_page_config` ne peut être appelé qu'une seule fois par page. Les
+    décorateurs de cache peuvent réexécuter la fonction lors des reruns et
+    provoquer l'erreur critique signalée par l'utilisateur.
+    """
     st.set_page_config(
         page_title="Assistant Académique JBK | UPL",
         page_icon="🎓",
@@ -479,36 +484,8 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
-# Entrée utilisateur
-if prompt := st.chat_input("Posez votre question académique..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        placeholder = st.empty()
-        full_res = ""
-        
-        try:
-            # On force le comportement académique ici
-            completion = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": "Tu es l'Assistant Académique de Julien Banze Kandolo. Réponds exclusivement aux sujets liés aux études, informatique, électronique et mathématiques."},
-                    *[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages]
-                ],
-                stream=True
-            )
-
-            for chunk in completion:
-                content = chunk.choices[0].delta.content
-                if content:
-                    full_res += content
-                    placeholder.markdown(full_res + "▌")
-            
-            placeholder.markdown(full_res)
-            st.session_state.messages.append({"role": "assistant", "content": full_res})
-            
-        except Exception as e:
-            st.error(f"Erreur : {e}")
-
+# Les blocs supplémentaires situés ici étaient des vestiges d'un essai
+# antérieur et exécutaient d'autres commandes Streamlit en dehors de la
+# logique principale. Ils ont été supprimés pour éviter les reruns inattendus
+# et l'erreur de configuration de la page. La seule entrée utilisateur
+# nécessaire est déjà gérée dans la fonction `main()`.
