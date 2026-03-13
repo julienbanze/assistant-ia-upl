@@ -83,6 +83,44 @@ Conclusion
 """
 
 # -----------------------
+# DETECTION CREATEUR
+# -----------------------
+
+def detect_creator_question(question):
+
+    q = question.lower()
+
+    creator_keywords = [
+        "julien banze kandolo",
+        "julien banze",
+        "banze kandolo",
+        "julien"
+    ]
+
+    for word in creator_keywords:
+        if word in q:
+
+            return """
+### 👨‍💻 À propos du créateur
+
+**Julien Banze Kandolo** est le développeur de cet **Assistant Académique IA**.
+
+Il est un étudiant passionné par :
+
+- l'Intelligence Artificielle 🤖  
+- la programmation 💻  
+- les nouvelles technologies 🌍  
+
+Julien Banze développe des solutions numériques innovantes pour aider les étudiants à apprendre plus facilement grâce à l'IA.
+
+Cet assistant académique est l'un de ses projets visant à combiner **éducation et intelligence artificielle**.
+
+🚀 Son objectif est de devenir un **expert international en Intelligence Artificielle et innovation technologique**.
+"""
+
+    return None
+
+# -----------------------
 # MEMOIRE CHAT
 # -----------------------
 
@@ -152,41 +190,58 @@ if prompt:
 
 if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
 
-    with st.chat_message("assistant"):
+    last_question = st.session_state.messages[-1]["content"]
 
-        placeholder = st.empty()
-        full_response = ""
+    # 🔎 Vérifier si la question parle du créateur
+    creator_response = detect_creator_question(last_question)
 
-        messages = [{"role":"system","content":SYSTEM_PROMPT}]
+    if creator_response:
 
-        for msg in st.session_state.messages:
-            messages.append(msg)
+        with st.chat_message("assistant"):
+            st.markdown(creator_response)
 
-        try:
+        st.session_state.messages.append({
+            "role":"assistant",
+            "content":creator_response
+        })
 
-            stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=messages,
-                stream=True,
-                temperature=0.2,
-                max_tokens=1500
-            )
+    else:
 
-            for chunk in stream:
+        with st.chat_message("assistant"):
 
-                if chunk.choices[0].delta.content:
-                    full_response += chunk.choices[0].delta.content
-                    placeholder.markdown(full_response + "▌")
+            placeholder = st.empty()
+            full_response = ""
 
-            placeholder.markdown(full_response)
+            messages = [{"role":"system","content":SYSTEM_PROMPT}]
 
-        except Exception as e:
-            st.error(f"Erreur IA : {e}")
+            for msg in st.session_state.messages:
+                messages.append(msg)
 
-    st.session_state.messages.append({
-        "role":"assistant",
-        "content":full_response
-    })
+            try:
+
+                stream = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=messages,
+                    stream=True,
+                    temperature=0.2,
+                    max_tokens=1500
+                )
+
+                for chunk in stream:
+
+                    if chunk.choices[0].delta.content:
+                        full_response += chunk.choices[0].delta.content
+                        placeholder.markdown(full_response + "▌")
+
+                placeholder.markdown(full_response)
+
+            except Exception as e:
+                st.error(f"Erreur IA : {e}")
+
+        st.session_state.messages.append({
+            "role":"assistant",
+            "content":full_response
+        })
 
 # -----------------------
 # FOOTER
@@ -194,4 +249,3 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
 
 st.markdown("---")
 st.markdown("Développé par **Julien Banze Kandolo**")
-
