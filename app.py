@@ -1,251 +1,217 @@
 import streamlit as st
 from groq import Groq
-import logging
-from pathlib import Path
+import pandas as pd
 
-# -----------------------
-# CONFIG PAGE
-# -----------------------
+from database import (
+register_user,
+login_user,
+save_search,
+save_chat,
+connect_db
+)
 
 st.set_page_config(
-    page_title="Assistant Académique IA 🎓",
-    page_icon="🎓",
-    layout="wide"
+page_title="Assistant Académique IA 🎓",
+page_icon="🎓",
+layout="wide"
 )
 
-# -----------------------
-# DESIGN
-# -----------------------
-
-st.markdown("""
-<style>
-
-.main {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
-.stApp {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
-
-h1{
-color:#ffd700;
-text-align:center;
-font-size:2.8em;
-}
-
-.stChatInput input{
-border-radius:25px;
-border:2px solid #ffd700;
-padding:12px;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# -----------------------
-# LOGS
-# -----------------------
-
-Path("logs").mkdir(exist_ok=True)
-
-logging.basicConfig(
-    level=logging.INFO,
-    handlers=[
-        logging.FileHandler("logs/app.log"),
-        logging.StreamHandler()
-    ]
-)
-
-# -----------------------
-# GROQ CLIENT
-# -----------------------
+st.title("🎓 Assistant Académique IA")
 
 @st.cache_resource
 def init_client():
-    try:
-        return Groq(api_key=st.secrets["GROQ_API_KEY"])
-    except:
-        st.error("Ajoutez GROQ_API_KEY dans Settings > Secrets")
-        st.stop()
+
+    return Groq(api_key=st.secrets["GROQ_API_KEY"])
 
 client = init_client()
-
-# -----------------------
-# PROMPT IA
-# -----------------------
-
-SYSTEM_PROMPT = """
-Tu es un assistant académique intelligent.
-
-Réponds toujours en français.
-
-Structure ta réponse :
-Titre
-Introduction
-Explication claire
-Conclusion
-"""
-
-# -----------------------
-# DETECTION CREATEUR
-# -----------------------
-
-def detect_creator_question(question):
-
-    q = question.lower()
-
-    creator_keywords = [
-        "julien banze kandolo",
-        "julien banze",
-        "banze kandolo",
-        "julien"
-    ]
-
-    for word in creator_keywords:
-        if word in q:
-
-            return """
-### 👨‍💻 À propos du créateur
-
-**Julien Banze Kandolo** est le développeur de cet **Assistant Académique IA**.
-
-Il est un étudiant passionné par :
-
-- l'Intelligence Artificielle 🤖  
-- la programmation 💻  
-- les nouvelles technologies 🌍  
-
-Julien Banze développe des solutions numériques innovantes pour aider les étudiants à apprendre plus facilement grâce à l'IA.
-
-Cet assistant académique est l'un de ses projets visant à combiner **éducation et intelligence artificielle**.
-
-🚀 Son objectif est de devenir un **expert international en Intelligence Artificielle et innovation technologique**.
-"""
-
-    return None
-
-# -----------------------
-# MEMOIRE CHAT
-# -----------------------
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# -----------------------
-# HEADER
-# -----------------------
+if "user" not in st.session_state:
+    st.session_state.user = None
 
-st.markdown("## 🎓 Assistant Académique IA")
-st.write("Posez vos questions académiques ou utilisez le micro.")
 
-# -----------------------
-# HISTORIQUE
-# -----------------------
+menu = st.sidebar.selectbox(
+"Menu",
+[
+"Inscription",
+"Connexion",
+"Assistant IA",
+"Admin Dashboard"
+]
+)
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# -------------------
+# INSCRIPTION
+# -------------------
 
-# -----------------------
-# QUESTION VOCALE
-# -----------------------
+if menu == "Inscription":
 
-audio = st.audio_input("🎤 Posez votre question avec votre voix")
+    st.header("Créer un compte")
 
-if audio is not None:
+    nom = st.text_input("Nom")
+    email = st.text_input("Email")
+    password = st.text_input("Mot de passe",type="password")
 
-    try:
-        transcription = client.audio.transcriptions.create(
-            file=("audio.wav", audio.getvalue()),
-            model="whisper-large-v3"
-        )
+    if st.button("S'inscrire"):
 
-        voice_prompt = transcription.text.strip()
+        register_user(nom,email,password)
 
-        if voice_prompt:
-            st.chat_message("user").markdown(voice_prompt)
+        st.success("Compte créé avec succès")
 
-            st.session_state.messages.append({
-                "role": "user",
-                "content": voice_prompt
-            })
 
-    except Exception:
-        st.warning("Erreur lors de la transcription vocale")
+# -------------------
+# LOGIN
+# -------------------
 
-# -----------------------
-# QUESTION TEXTE
-# -----------------------
+elif menu == "Connexion":
 
-prompt = st.chat_input("Posez votre question académique...")
+    st.header("Connexion")
 
-if prompt:
+    email = st.text_input("Email")
+    password = st.text_input("Mot de passe",type="password")
 
-    st.session_state.messages.append({
-        "role": "user",
-        "content": prompt
-    })
+    if st.button("Se connecter"):
 
-    st.chat_message("user").markdown(prompt)
+        user = login_user(email,password)
 
-# -----------------------
-# REPONSE IA
-# -----------------------
+        if user:
 
-if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
+            st.session_state.user = user
+            st.success("Connexion réussie")
 
-    last_question = st.session_state.messages[-1]["content"]
+        else:
 
-    # 🔎 Vérifier si la question parle du créateur
-    creator_response = detect_creator_question(last_question)
+            st.error("Email ou mot de passe incorrect")
 
-    if creator_response:
 
-        with st.chat_message("assistant"):
-            st.markdown(creator_response)
+# -------------------
+# ASSISTANT IA
+# -------------------
 
-        st.session_state.messages.append({
-            "role":"assistant",
-            "content":creator_response
-        })
+elif menu == "Assistant IA":
+
+    if st.session_state.user is None:
+
+        st.warning("Veuillez vous connecter")
 
     else:
 
-        with st.chat_message("assistant"):
+        for msg in st.session_state.messages:
 
-            placeholder = st.empty()
-            full_response = ""
+            with st.chat_message(msg["role"]):
 
-            messages = [{"role":"system","content":SYSTEM_PROMPT}]
+                st.markdown(msg["content"])
 
-            for msg in st.session_state.messages:
-                messages.append(msg)
 
-            try:
+        prompt = st.chat_input("Posez votre question académique...")
+
+        if prompt:
+
+            st.session_state.messages.append({
+            "role":"user",
+            "content":prompt
+            })
+
+            save_chat(st.session_state.user["id"],"user",prompt)
+
+            st.chat_message("user").markdown(prompt)
+
+            with st.chat_message("assistant"):
+
+                placeholder = st.empty()
+
+                full_response = ""
+
+                messages = [{
+                "role":"system",
+                "content":"Tu es un assistant académique intelligent."
+                }]
+
+                for m in st.session_state.messages:
+
+                    messages.append(m)
 
                 stream = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=messages,
-                    stream=True,
-                    temperature=0.2,
-                    max_tokens=1500
+                model="llama-3.3-70b-versatile",
+                messages=messages,
+                stream=True
                 )
 
                 for chunk in stream:
 
                     if chunk.choices[0].delta.content:
+
                         full_response += chunk.choices[0].delta.content
+
                         placeholder.markdown(full_response + "▌")
 
                 placeholder.markdown(full_response)
 
-            except Exception as e:
-                st.error(f"Erreur IA : {e}")
-
-        st.session_state.messages.append({
+            st.session_state.messages.append({
             "role":"assistant",
             "content":full_response
-        })
+            })
 
-# -----------------------
-# FOOTER
-# -----------------------
+            save_chat(st.session_state.user["id"],"assistant",full_response)
 
-st.markdown("---")
-st.markdown("Développé par **Julien Banze Kandolo**")
+            save_search(
+            st.session_state.user["id"],
+            prompt,
+            full_response
+            )
+
+# -------------------
+# ADMIN
+# -------------------
+
+elif menu == "Admin Dashboard":
+
+    st.title("Dashboard Admin")
+
+    db = connect_db()
+
+    st.subheader("Utilisateurs")
+
+    users = pd.read_sql("SELECT * FROM users",db)
+
+    st.dataframe(users)
+
+    st.subheader("Recherches")
+
+    recherches = pd.read_sql("""
+
+    SELECT
+    users.nom,
+    users.email,
+    recherches.question,
+    recherches.date_recherche
+
+    FROM recherches
+
+    JOIN users
+    ON users.id = recherches.user_id
+
+    """,db)
+
+    st.dataframe(recherches)
+
+    st.subheader("Conversations")
+
+    chat = pd.read_sql("""
+
+    SELECT
+    users.nom,
+    chat_history.role,
+    chat_history.message,
+    chat_history.date_message
+
+    FROM chat_history
+
+    JOIN users
+    ON users.id = chat_history.user_id
+
+    """,db)
+
+    st.dataframe(chat)
