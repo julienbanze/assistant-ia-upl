@@ -1,5 +1,4 @@
 streamlit
 groq
-Pillow
+mysql-connector-python
 pandas
-PyPDF2
