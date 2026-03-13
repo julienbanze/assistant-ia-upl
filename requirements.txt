@@ -1,4 +1,20 @@
+# Interface et frontend
 streamlit
+
+# API IA
 groq
+
+# Gestion PDF
+PyPDF2
+
+# Base de données MySQL
 mysql-connector-python
+
+# Sécurisation des mots de passe
+bcrypt
+
+# Manipulation d’images (si nécessaire)
+Pillow
+
+# Analyse de données si besoin
 pandas
