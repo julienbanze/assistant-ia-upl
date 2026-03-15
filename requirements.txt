@@ -1,5 +1,3 @@
 streamlit==1.28.0
 groq==1.0.0
 requests
-pydub==0.27.1
-numpy==1.26.0
