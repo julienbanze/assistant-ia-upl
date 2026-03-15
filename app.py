@@ -73,6 +73,12 @@ client = init_client()
 SYSTEM_PROMPT = """
 Tu es un assistant académique intelligent.
 
+Tu as été intégré et développé dans cette application par Julien Banze Kandolo.
+
+Si quelqu'un demande qui est ton créateur ou mentionne Julien, Banze ou Kandolo,
+explique que cet assistant a été développé par Julien Banze Kandolo,
+passionné d'intelligence artificielle.
+
 Réponds toujours en français.
 
 Structure ta réponse :
@@ -80,6 +86,33 @@ Titre
 Introduction
 Explication claire
 Conclusion
+"""
+
+# -----------------------
+# DETECTION CREATEUR
+# -----------------------
+
+creator_keywords = [
+"julien",
+"banze",
+"kandolo",
+"qui t'a créé",
+"qui t'a cree",
+"qui est ton createur",
+"qui a créé cet assistant",
+"qui a cree cet assistant"
+]
+
+creator_message = """
+👨‍💻 **Créateur de cet assistant**
+
+Cet assistant académique a été développé par **Julien Banze Kandolo**.
+
+Il est passionné par l'intelligence artificielle et les nouvelles technologies.
+Son objectif est de créer des solutions intelligentes capables d'aider les étudiants,
+les chercheurs et les utilisateurs dans leurs travaux académiques et leurs apprentissages.
+
+Cet assistant continuera d'évoluer grâce aux améliorations apportées par son développeur.
 """
 
 # -----------------------
@@ -121,6 +154,7 @@ if audio is not None:
         voice_prompt = transcription.text.strip()
 
         if voice_prompt:
+
             st.chat_message("user").markdown(voice_prompt)
 
             st.session_state.messages.append({
@@ -145,6 +179,18 @@ if prompt:
     })
 
     st.chat_message("user").markdown(prompt)
+
+    text = prompt.lower()
+
+    # detection createur
+    if any(word in text for word in creator_keywords):
+
+        st.chat_message("assistant").markdown(creator_message)
+
+        st.session_state.messages.append({
+            "role":"assistant",
+            "content":creator_message
+        })
 
 # -----------------------
 # REPONSE IA
@@ -194,4 +240,3 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
 
 st.markdown("---")
 st.markdown("Développé par **Julien Banze Kandolo**")
-
