@@ -44,12 +44,20 @@ logging.basicConfig(
 )
 
 # -----------------------
+# MAINTENANCE / MODIFICATION
+# -----------------------
+MAINTENANCE_MODE = False  # <- Mettre à True si tu modifies l'app
+if MAINTENANCE_MODE:
+    st.warning("⚠️ L'application est actuellement en cours de modification par le développeur Julien Banze. Merci de revenir plus tard.")
+    st.stop()
+
+# -----------------------
 # GROQ CLIENT
 # -----------------------
 @st.cache_resource
 def init_groq_client():
     try:
-        # ⚠️ Mets ta clé Groq ici ou via secrets pour ne pas exposer
+        # 🔒 Clé sécurisée via Streamlit Secrets
         return Groq(api_key=st.secrets["GROQ_API_KEY"])
     except:
         st.error("Erreur : ajoute ta clé Groq dans Secrets")
@@ -83,23 +91,27 @@ st.markdown("## 🎓 Assistant Académique IA")
 st.write("Posez vos questions académiques ou utilisez le micro.")
 
 # -----------------------
-# SPECIAL RESPONSE SI ON PARLE DE JULIEN BANZE KANDOLO
+# SPECIAL RESPONSE POUR LE CREATEUR
 # -----------------------
-special_names = ["julien banze kandolo"]
+creator_names = ["julien", "banze", "kandolo"]  # n'importe quelle partie du nom
+def check_creator(prompt_text):
+    prompt_text = prompt_text.lower()
+    return any(name in prompt_text for name in creator_names)
 
-# Question texte
+# -----------------------
+# QUESTION TEXTE
+# -----------------------
 prompt = st.chat_input("Posez votre question académique...")
 
 if prompt:
-    # Affiche la question utilisateur
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role":"user","content":prompt})
 
-    # Vérifie si l’utilisateur mentionne ton nom complet
-    if any(name in prompt.lower() for name in special_names):
+    # Vérifie si l'utilisateur mentionne le créateur
+    if check_creator(prompt):
         st.chat_message("assistant").markdown(
-            "👋 Bonjour ! Vous parlez de **Julien Banze Kandolo**, le créateur de cette application. "
-            "Il est passionné par l'intelligence artificielle et a conçu cet assistant académique pour vous aider."
+            "👋 Bonjour ! Vous parlez du créateur de cette application, **Julien Banze Kandolo**. "
+            "Il est passionné par l'intelligence artificielle et a conçu cet assistant académique pour vous aider de manière professionnelle."
         )
 
     # -----------------------
