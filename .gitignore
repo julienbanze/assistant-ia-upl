@@ -6,16 +6,6 @@ __pycache__/
 logs/
 *.log
 
-# Streamlit secrets
+# Secrets Streamlit
 .secrets.toml
 .env
-
-# Base de données locales ou sensibles
-database.py
-base_de_donnees.py
-*.sqlite
-*.db
-
-# IDE / Editor
-.vscode/
-.idea/
