@@ -1,24 +1,3 @@
-import streamlit as st
-from groq import Groq
-import logging
-from pathlib import Path
-
-# -----------------------
-# CONFIGURATION PAGE
-# -----------------------
-st.set_page_config(
-    page_title="Assistant Académique IA 🎓",
-    page_icon="🎓",
-    layout="wide"
-)
-
-# -----------------------
-# DESIGN
-# -----------------------
-st.markdown("""
-<style>
-.main {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
-.stApp {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
 
 h1{
 color:#ffd700;
