@@ -1,7 +1,15 @@
-__pycache__/
-*.pyc
-venv/
+# Secrets et clés
+.secrets.toml
 .env
+
+# Logs
 logs/
 *.log
-.streamlit/secrets.toml
+
+# Fichiers temporaires
+__pycache__/
+*.pyc
+.DS_Store
+
+# Base de données locale (si jamais tu avais un fichier sqlite ou XAMPP)
+database.py
