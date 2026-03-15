@@ -46,10 +46,14 @@ logging.basicConfig(
 # -----------------------
 # MAINTENANCE / MODIFICATION
 # -----------------------
-MAINTENANCE_MODE = False  # <- Mettre à True si tu modifies l'app
+MAINTENANCE_MODE = False  # <- Mettre True si tu modifies l'application
 if MAINTENANCE_MODE:
-    st.warning("⚠️ L'application est actuellement en cours de modification par le développeur Julien Banze. Merci de revenir plus tard.")
-    st.stop()
+    st.markdown(
+        "⚠️ **L'application est actuellement en cours de maintenance par le développeur Julien Banze. "
+        "Veuillez réessayer plus tard.**",
+        unsafe_allow_html=True
+    )
+    st.stop()  # bloque tout le reste de l'application
 
 # -----------------------
 # GROQ CLIENT
@@ -57,10 +61,9 @@ if MAINTENANCE_MODE:
 @st.cache_resource
 def init_groq_client():
     try:
-        # 🔒 Clé sécurisée via Streamlit Secrets
         return Groq(api_key=st.secrets["GROQ_API_KEY"])
     except:
-        st.error("Erreur : ajoute ta clé Groq dans Secrets")
+        st.error("Erreur : ajoute ta clé Groq dans Secrets Streamlit")
         st.stop()
 
 groq_client = init_groq_client()
@@ -91,12 +94,13 @@ st.markdown("## 🎓 Assistant Académique IA")
 st.write("Posez vos questions académiques ou utilisez le micro.")
 
 # -----------------------
-# SPECIAL RESPONSE POUR LE CREATEUR
+# LISTE DES MOTS CLÉS DU CREATEUR
 # -----------------------
-creator_names = ["julien", "banze", "kandolo"]  # n'importe quelle partie du nom
+creator_keywords = ["julien", "banze", "kandolo"]
+
 def check_creator(prompt_text):
     prompt_text = prompt_text.lower()
-    return any(name in prompt_text for name in creator_names)
+    return any(word in prompt_text for word in creator_keywords)
 
 # -----------------------
 # QUESTION TEXTE
