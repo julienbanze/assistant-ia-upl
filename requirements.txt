@@ -1,6 +1,15 @@
+# Interface web
 streamlit==1.27.0
+
+# Client pour l'IA Groq
 groq==0.3.0
+
+# Client Python pour Supabase
 supabase==1.0.0
+
+# Librairies pour manipuler les données
 pandas==2.1.0
 numpy==1.26.2
+
+# Gestion des variables d'environnement (optionnel pour secrets)
 python-dotenv==1.0.0
