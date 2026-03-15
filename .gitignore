@@ -1,15 +1,57 @@
-# Secrets et clés
-.secrets.toml
-.env
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.DS_Store
 
+# ==========================
 # Logs
+# ==========================
 logs/
 *.log
 
-# Fichiers temporaires
-__pycache__/
-*.pyc
-.DS_Store
+# ==========================
+# Streamlit secrets
+# ==========================
+.secrets.toml
+.env
 
-# Base de données locale (si jamais tu avais un fichier sqlite ou XAMPP)
+# ==========================
+# Base de données locales / fichiers sensibles
+# ==========================
 database.py
+base_de_donnees.py
+*.sqlite
+*.db
+
+# ==========================
+# XAMPP / dossiers temporaires
+# ==========================
+htdocs/
+tmp/
+*.sql
+
+# ==========================
+# Virtual environment
+# ==========================
+venv/
+.env/
+.venv/
+
+# ==========================
+# IDE / Editor
+# ==========================
+.vscode/
+.idea/
+
+# ==========================
+# Autres fichiers à ignorer
+# ==========================
+*.bak
+*.backup
+*.old
