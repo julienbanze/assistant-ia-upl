@@ -46,15 +46,14 @@ logging.basicConfig(
 # -----------------------
 # MAINTENANCE / MODIFICATION
 # -----------------------
-MAINTENANCE_MODE = True  # <- Toujours True pour forcer le message de maintenance si code modifié/coupé
-
+MAINTENANCE_MODE = False  # <- True si tu modifies l'app
 if MAINTENANCE_MODE:
     st.markdown(
         "⚠️ **L'application est actuellement en cours de maintenance par le développeur Julien Banze. "
         "Veuillez réessayer plus tard.**",
         unsafe_allow_html=True
     )
-    st.stop()  # bloque tout le reste de l'application
+    st.stop()  # bloque le reste de l'application
 
 # -----------------------
 # GROQ CLIENT
@@ -98,22 +97,16 @@ st.write("Posez vos questions académiques ou utilisez le micro.")
 # DETECTION CREATEUR
 # -----------------------
 creator_keywords = ["julien", "banze", "kandolo"]
-creator_questions = [
-    "qui est le createur", 
-    "qui a fait cet assistant",
-    "qui a développé cet assistant",
-    "qui est ton createur",
-    "developpeur de l'assistant"
-]
+creator_questions = ["qui est ton createur", "ton createur", "qui t'a fait", "qui t'a developpe", "developpeur"]
 
 def is_creator_mentioned(text):
     text = text.lower()
+    # vérifie nom ou question sur créateur
     return any(word in text for word in creator_keywords) or any(q in text for q in creator_questions)
 
 creator_message = (
-    "👋 Bonjour ! Vous parlez du créateur de **cet assistant académique**, "
-    "**Julien Banze Kandolo**. Il est passionné par l'intelligence artificielle et a développé "
-    "cet assistant pour vous aider de manière professionnelle."
+    "👋 Bonjour ! Vous parlez du créateur de cette application, **Julien Banze Kandolo**. "
+    "Il est passionné par l'intelligence artificielle et a conçu cet assistant académique pour vous aider de manière professionnelle."
 )
 
 # -----------------------
@@ -125,7 +118,7 @@ if prompt:
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role":"user","content":prompt})
 
-    # Si l'utilisateur mentionne le créateur de l'assistant
+    # Si on mentionne le créateur ou pose une question sur lui
     if is_creator_mentioned(prompt):
         st.chat_message("assistant").markdown(creator_message)
 
