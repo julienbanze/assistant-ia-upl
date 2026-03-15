@@ -1,4 +1,3 @@
-streamlit
-groq
-Pillow
-pandas
+streamlit==1.28.0
+groq==1.0.0
+requests
