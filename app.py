@@ -3,7 +3,9 @@ from groq import Groq
 import logging
 from pathlib import Path
 
-
+# -----------------------
+# CONFIG PAGE
+# -----------------------
 
 st.set_page_config(
     page_title="Assistant Académique IA 🎓",
@@ -11,13 +13,32 @@ st.set_page_config(
     layout="wide"
 )
 
-
+# -----------------------
+# DESIGN + CACHER STREAMLIT
+# -----------------------
 
 st.markdown("""
 <style>
 
-.main {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
-.stApp {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
+# cacher menu streamlit
+#MainMenu {visibility: hidden;}
+
+# cacher footer
+footer {visibility: hidden;}
+
+# cacher header
+header {visibility: hidden;}
+
+# cacher toolbar
+[data-testid="stToolbar"] {display: none;}
+
+.main {
+background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)
+}
+
+.stApp {
+background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)
+}
 
 h1{
 color:#ffd700;
@@ -34,7 +55,9 @@ padding:12px;
 </style>
 """, unsafe_allow_html=True)
 
-
+# -----------------------
+# LOGS
+# -----------------------
 
 Path("logs").mkdir(exist_ok=True)
 
@@ -46,7 +69,9 @@ logging.basicConfig(
     ]
 )
 
-
+# -----------------------
+# GROQ CLIENT
+# -----------------------
 
 @st.cache_resource
 def init_client():
@@ -58,7 +83,9 @@ def init_client():
 
 client = init_client()
 
-
+# -----------------------
+# PROMPT IA
+# -----------------------
 
 SYSTEM_PROMPT = """
 Tu es un assistant académique intelligent.
@@ -66,29 +93,38 @@ Tu es un assistant académique intelligent.
 Réponds toujours en français.
 
 Structure ta réponse :
+
 Titre
 Introduction
 Explication claire
 Conclusion
 """
 
-
+# -----------------------
+# MEMOIRE CHAT
+# -----------------------
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-
+# -----------------------
+# HEADER
+# -----------------------
 
 st.markdown("## 🎓 Assistant Académique IA")
 st.write("Posez vos questions académiques ou utilisez le micro.")
 
-
+# -----------------------
+# HISTORIQUE
+# -----------------------
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-
+# -----------------------
+# QUESTION VOCALE
+# -----------------------
 
 audio = st.audio_input("🎤 Posez votre question avec votre voix")
 
@@ -113,7 +149,9 @@ if audio is not None:
     except Exception:
         st.warning("Erreur lors de la transcription vocale")
 
-
+# -----------------------
+# QUESTION TEXTE
+# -----------------------
 
 prompt = st.chat_input("Posez votre question académique...")
 
@@ -126,6 +164,9 @@ if prompt:
 
     st.chat_message("user").markdown(prompt)
 
+# -----------------------
+# REPONSE IA
+# -----------------------
 
 if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
 
@@ -134,58 +175,40 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
         placeholder = st.empty()
         full_response = ""
 
-        last_question = st.session_state.messages[-1]["content"].lower()
-        
+        messages = [{"role":"system","content":SYSTEM_PROMPT}]
 
-        creator_names = ["julien", "banze", "kandolo"]
+        for msg in st.session_state.messages:
+            messages.append(msg)
 
-        if any(name in last_question for name in creator_names):
+        try:
 
-            full_response = """
-👏 Vous mentionnez **Julien Banze Kandolo**.
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=messages,
+                stream=True,
+                temperature=0.2,
+                max_tokens=1500
+            )
 
-Il est le **créateur et développeur de cet Assistant Académique IA**.  
-Passionné par **l'intelligence artificielle, la technologie et l'innovation**,  
-il a conçu cette plateforme pour aider les étudiants à apprendre plus facilement grâce à l'IA.
+            for chunk in stream:
 
-🚀 Son objectif est de rendre l'éducation plus accessible grâce à la technologie.
-"""
+                if chunk.choices[0].delta.content:
+                    full_response += chunk.choices[0].delta.content
+                    placeholder.markdown(full_response + "▌")
+
             placeholder.markdown(full_response)
 
-        else:
-
-            messages = [{"role":"system","content":SYSTEM_PROMPT}]
-
-            for msg in st.session_state.messages:
-                messages.append(msg)
-
-            try:
-
-                stream = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=messages,
-                    stream=True,
-                    temperature=0.2,
-                    max_tokens=1500
-                )
-
-                for chunk in stream:
-
-                    if chunk.choices[0].delta.content:
-                        full_response += chunk.choices[0].delta.content
-                        placeholder.markdown(full_response + "▌")
-
-                placeholder.markdown(full_response)
-
-            except Exception as e:
-                st.error(f"Erreur IA : {e}")
+        except Exception as e:
+            st.error(f"Erreur IA : {e}")
 
     st.session_state.messages.append({
         "role":"assistant",
         "content":full_response
     })
 
-
+# -----------------------
+# FOOTER
+# -----------------------
 
 st.markdown("---")
 st.markdown("Développé par **Julien Banze Kandolo**")
