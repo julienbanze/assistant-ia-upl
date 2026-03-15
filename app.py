@@ -1,12 +1,12 @@
 import streamlit as st
-from supabase import create_client
 from groq import Groq
 import logging
 from pathlib import Path
 
 # -----------------------
-# CONFIGURATION PAGE
+# CONFIG PAGE
 # -----------------------
+
 st.set_page_config(
     page_title="Assistant Académique IA 🎓",
     page_icon="🎓",
@@ -16,8 +16,10 @@ st.set_page_config(
 # -----------------------
 # DESIGN
 # -----------------------
+
 st.markdown("""
 <style>
+
 .main {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
 .stApp {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
 
@@ -32,44 +34,47 @@ border-radius:25px;
 border:2px solid #ffd700;
 padding:12px;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------
 # LOGS
 # -----------------------
+
 Path("logs").mkdir(exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
-    handlers=[logging.FileHandler("logs/app.log"), logging.StreamHandler()]
+    handlers=[
+        logging.FileHandler("logs/app.log"),
+        logging.StreamHandler()
+    ]
 )
 
 # -----------------------
 # GROQ CLIENT
 # -----------------------
+
 @st.cache_resource
-def init_groq_client():
+def init_client():
     try:
-        return Groq(api_key="ta_cle_groq")  # Remplace par ta clé Groq
+        return Groq(api_key=st.secrets["GROQ_API_KEY"])
     except:
-        st.error("Erreur : ajoute ta clé Groq")
+        st.error("Ajoutez GROQ_API_KEY dans Settings > Secrets")
         st.stop()
 
-groq_client = init_groq_client()
-
-# -----------------------
-# SUPABASE CLIENT
-# -----------------------
-SUPABASE_URL = "https://syvlefgsyjgebwzmyoyp.supabase.co"
-SUPABASE_KEY = "sb_publishable_7_CzCKPJ-QJmgFC4-5GONg_d1cqw4F3"
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+client = init_client()
 
 # -----------------------
 # PROMPT IA
 # -----------------------
+
 SYSTEM_PROMPT = """
 Tu es un assistant académique intelligent.
+
 Réponds toujours en français.
+
 Structure ta réponse :
 Titre
 Introduction
@@ -78,58 +83,88 @@ Conclusion
 """
 
 # -----------------------
-# INSCRIPTION / LOGIN SIMPLIFIÉ
-# -----------------------
-st.markdown("## 🎓 Assistant Académique IA")
-email = st.text_input("Votre email (pour sauvegarder vos messages)")
-
-if email:
-    # Vérifier si l'utilisateur existe
-    data = supabase.table("utilisateurs").select("*").eq("email", email).execute().data
-    if not data:
-        # Inscription automatique
-        supabase.table("utilisateurs").insert({"email": email}).execute()
-        user_id = supabase.table("utilisateurs").select("id").eq("email", email).execute().data[0]["id"]
-    else:
-        user_id = data[0]["id"]
-else:
-    st.warning("Veuillez entrer votre email pour continuer.")
-    st.stop()
-
-# -----------------------
 # MEMOIRE CHAT
 # -----------------------
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Affichage de l'historique pour cet utilisateur
-historique = supabase.table("messages").select("*").eq("user_id", user_id).order("created_at", desc=False).execute().data
-for msg in historique:
-    role = "user" if msg.get("question") else "assistant"
-    content = msg.get("question") or msg.get("reponse")
-    st.chat_message(role).markdown(content)
+# -----------------------
+# HEADER
+# -----------------------
+
+st.markdown("## 🎓 Assistant Académique IA")
+st.write("Posez vos questions académiques ou utilisez le micro.")
+
+# -----------------------
+# HISTORIQUE
+# -----------------------
+
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# -----------------------
+# QUESTION VOCALE
+# -----------------------
+
+audio = st.audio_input("🎤 Posez votre question avec votre voix")
+
+if audio is not None:
+
+    try:
+        transcription = client.audio.transcriptions.create(
+            file=("audio.wav", audio.getvalue()),
+            model="whisper-large-v3"
+        )
+
+        voice_prompt = transcription.text.strip()
+
+        if voice_prompt:
+            st.chat_message("user").markdown(voice_prompt)
+
+            st.session_state.messages.append({
+                "role": "user",
+                "content": voice_prompt
+            })
+
+    except Exception:
+        st.warning("Erreur lors de la transcription vocale")
 
 # -----------------------
 # QUESTION TEXTE
 # -----------------------
+
 prompt = st.chat_input("Posez votre question académique...")
 
 if prompt:
-    st.chat_message("user").markdown(prompt)
-    st.session_state.messages.append({"role":"user","content":prompt})
 
-    # -----------------------
-    # REPONSE IA
-    # -----------------------
+    st.session_state.messages.append({
+        "role": "user",
+        "content": prompt
+    })
+
+    st.chat_message("user").markdown(prompt)
+
+# -----------------------
+# REPONSE IA
+# -----------------------
+
+if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
+
     with st.chat_message("assistant"):
+
         placeholder = st.empty()
         full_response = ""
+
         messages = [{"role":"system","content":SYSTEM_PROMPT}]
+
         for msg in st.session_state.messages:
             messages.append(msg)
 
         try:
-            stream = groq_client.chat.completions.create(
+
+            stream = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=messages,
                 stream=True,
@@ -138,26 +173,26 @@ if prompt:
             )
 
             for chunk in stream:
+
                 if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
                     placeholder.markdown(full_response + "▌")
+
             placeholder.markdown(full_response)
+
         except Exception as e:
             st.error(f"Erreur IA : {e}")
 
-        # -----------------------
-        # Sauvegarde dans Supabase
-        # -----------------------
-        supabase.table("messages").insert({
-            "user_id": user_id,
-            "question": prompt,
-            "reponse": full_response
-        }).execute()
-
-        st.session_state.messages.append({"role":"assistant","content":full_response})
+    st.session_state.messages.append({
+        "role":"assistant",
+        "content":full_response
+    })
 
 # -----------------------
 # FOOTER
 # -----------------------
+
 st.markdown("---")
 st.markdown("Développé par **Julien Banze Kandolo**")
+
+
