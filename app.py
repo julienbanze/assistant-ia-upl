@@ -195,4 +195,3 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
 st.markdown("---")
 st.markdown("Développé par **Julien Banze Kandolo**")
 
-
