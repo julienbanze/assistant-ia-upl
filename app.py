@@ -14,14 +14,31 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN
+# DESIGN + CACHER STREAMLIT
 # -----------------------
 
 st.markdown("""
 <style>
 
-.main {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
-.stApp {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
+# cacher menu streamlit
+#MainMenu {visibility: hidden;}
+
+# cacher footer
+footer {visibility: hidden;}
+
+# cacher header
+header {visibility: hidden;}
+
+# cacher toolbar
+[data-testid="stToolbar"] {display: none;}
+
+.main {
+background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)
+}
+
+.stApp {
+background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)
+}
 
 h1{
 color:#ffd700;
@@ -76,6 +93,7 @@ Tu es un assistant académique intelligent.
 Réponds toujours en français.
 
 Structure ta réponse :
+
 Titre
 Introduction
 Explication claire
@@ -194,4 +212,3 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
 
 st.markdown("---")
 st.markdown("Développé par **Julien Banze Kandolo**")
-
