@@ -1,3 +1,24 @@
+import streamlit as st
+from groq import Groq
+import logging
+from pathlib import Path
+
+# -----------------------
+# CONFIGURATION PAGE
+# -----------------------
+st.set_page_config(
+    page_title="Assistant Académique IA 🎓",
+    page_icon="🎓",
+    layout="wide"
+)
+
+# -----------------------
+# DESIGN
+# -----------------------
+st.markdown("""
+<style>
+.main {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
+.stApp {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
 
 h1{
 color:#ffd700;
@@ -25,7 +46,8 @@ logging.basicConfig(
 # -----------------------
 # MAINTENANCE / MODIFICATION
 # -----------------------
-MAINTENANCE_MODE = False  # <- Mettre True si tu modifies l'application
+MAINTENANCE_MODE = True  # <- Toujours True pour forcer le message de maintenance si code modifié/coupé
+
 if MAINTENANCE_MODE:
     st.markdown(
         "⚠️ **L'application est actuellement en cours de maintenance par le développeur Julien Banze. "
@@ -73,13 +95,26 @@ st.markdown("## 🎓 Assistant Académique IA")
 st.write("Posez vos questions académiques ou utilisez le micro.")
 
 # -----------------------
-# LISTE DES MOTS CLÉS DU CREATEUR
+# DETECTION CREATEUR
 # -----------------------
 creator_keywords = ["julien", "banze", "kandolo"]
+creator_questions = [
+    "qui est le createur", 
+    "qui a fait cet assistant",
+    "qui a développé cet assistant",
+    "qui est ton createur",
+    "developpeur de l'assistant"
+]
 
-def check_creator(prompt_text):
-    prompt_text = prompt_text.lower()
-    return any(word in prompt_text for word in creator_keywords)
+def is_creator_mentioned(text):
+    text = text.lower()
+    return any(word in text for word in creator_keywords) or any(q in text for q in creator_questions)
+
+creator_message = (
+    "👋 Bonjour ! Vous parlez du créateur de **cet assistant académique**, "
+    "**Julien Banze Kandolo**. Il est passionné par l'intelligence artificielle et a développé "
+    "cet assistant pour vous aider de manière professionnelle."
+)
 
 # -----------------------
 # QUESTION TEXTE
@@ -90,12 +125,9 @@ if prompt:
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role":"user","content":prompt})
 
-    # Vérifie si l'utilisateur mentionne le créateur
-    if check_creator(prompt):
-        st.chat_message("assistant").markdown(
-            "👋 Bonjour ! Vous parlez du créateur de cette application, **Julien Banze Kandolo**. "
-            "Il est passionné par l'intelligence artificielle et a conçu cet assistant académique pour vous aider de manière professionnelle."
-        )
+    # Si l'utilisateur mentionne le créateur de l'assistant
+    if is_creator_mentioned(prompt):
+        st.chat_message("assistant").markdown(creator_message)
 
     # -----------------------
     # REPONSE IA
