@@ -134,7 +134,7 @@ if audio is not None:
             })
             # Sauvegarde dans Supabase
             supabase.table("messages").insert({
-                "user_id": "user_anonyme",  # adapter selon table users
+                "user_id": "user_anonyme",
                 "question": voice_prompt,
                 "date": "now()"
             }).execute()
