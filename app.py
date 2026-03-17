@@ -2,13 +2,12 @@ import streamlit as st
 from groq import Groq
 import logging
 from pathlib import Path
-import sqlite3
 import re
+from supabase import create_client, Client
 
 # -----------------------
 # CONFIG PAGE
 # -----------------------
-
 st.set_page_config(
     page_title="Assistant Académique IA 🎓",
     page_icon="🎓",
@@ -18,10 +17,8 @@ st.set_page_config(
 # -----------------------
 # DESIGN
 # -----------------------
-
 st.markdown("""
 <style>
-
 .main {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
 .stApp {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
 
@@ -36,50 +33,49 @@ border-radius:25px;
 border:2px solid #ffd700;
 padding:12px;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------
-# BASE DE DONNEES
+# SUPABASE CONFIG
 # -----------------------
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
-conn = sqlite3.connect("users.db", check_same_thread=False)
-cursor = conn.cursor()
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS users(
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-nom TEXT,
-email TEXT,
-matricule TEXT UNIQUE
-)
-""")
-conn.commit()
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # -----------------------
 # FONCTIONS
 # -----------------------
-
 def verifier_matricule(matricule):
-    pattern = r"^20\d{8}$"
-    return re.match(pattern, matricule)
+    return re.match(r"^20\d{8}$", matricule)
 
 def user_existe(matricule):
-    cursor.execute("SELECT * FROM users WHERE matricule=?", (matricule,))
-    return cursor.fetchone()
+    response = supabase.table("users").select("*").eq("matricule", matricule).execute()
+    return len(response.data) > 0
+
+def ajouter_user(nom, email, matricule):
+    supabase.table("users").insert({
+        "nom": nom,
+        "email": email,
+        "matricule": matricule
+    }).execute()
 
 # -----------------------
-# SESSION LOGIN
+# SESSION
 # -----------------------
-
 if "connecte" not in st.session_state:
     st.session_state.connecte = False
 
-# -----------------------
-# PAGE INSCRIPTION
-# -----------------------
+if "admin" not in st.session_state:
+    st.session_state.admin = False
 
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# -----------------------
+# INSCRIPTION
+# -----------------------
 st.markdown("## 🎓 Assistant Académique IA")
 
 if not st.session_state.connecte:
@@ -95,26 +91,49 @@ if not st.session_state.connecte:
         if not verifier_matricule(matricule):
             st.error("Matricule invalide ❌ (ex: 2025023061)")
 
-        elif user_existe(matricule):
-            st.success("Déjà inscrit ✅")
-            st.session_state.connecte = True
-
         else:
-            cursor.execute(
-                "INSERT INTO users(nom,email,matricule) VALUES(?,?,?)",
-                (nom,email,matricule)
-            )
-            conn.commit()
-
-            st.success("Inscription réussie 🎉")
-            st.session_state.connecte = True
+            try:
+                if user_existe(matricule):
+                    st.success("Bienvenue 👋")
+                    st.session_state.connecte = True
+                else:
+                    ajouter_user(nom, email, matricule)
+                    st.success("Inscription réussie 🎉")
+                    st.session_state.connecte = True
+            except:
+                st.error("Erreur connexion base de données")
 
     st.stop()
 
 # -----------------------
+# SIDEBAR
+# -----------------------
+with st.sidebar:
+
+    st.title("Menu")
+
+    if st.button("Se déconnecter"):
+        st.session_state.connecte = False
+        st.rerun()
+
+    st.markdown("---")
+
+    code_admin = st.text_input("Code Admin", type="password")
+
+    if code_admin == "ADMIN123":
+        st.session_state.admin = True
+
+# -----------------------
+# ADMIN PANEL
+# -----------------------
+if st.session_state.admin:
+    st.subheader("📊 Liste des étudiants inscrits")
+    response = supabase.table("users").select("nom,email,matricule").execute()
+    st.table(response.data)
+
+# -----------------------
 # LOGS
 # -----------------------
-
 Path("logs").mkdir(exist_ok=True)
 
 logging.basicConfig(
@@ -128,13 +147,12 @@ logging.basicConfig(
 # -----------------------
 # GROQ CLIENT
 # -----------------------
-
 @st.cache_resource
 def init_client():
     try:
         return Groq(api_key=st.secrets["GROQ_API_KEY"])
     except:
-        st.error("Ajoutez GROQ_API_KEY dans Settings > Secrets")
+        st.error("Ajoutez GROQ_API_KEY dans Secrets")
         st.stop()
 
 client = init_client()
@@ -142,86 +160,60 @@ client = init_client()
 # -----------------------
 # PROMPT IA
 # -----------------------
-
 SYSTEM_PROMPT = """
 Tu es un assistant académique intelligent.
 
 Réponds toujours en français.
 
-Structure ta réponse :
+Structure :
 Titre
 Introduction
-Explication claire
+Explication
 Conclusion
 """
 
 # -----------------------
-# MEMOIRE CHAT
-# -----------------------
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# -----------------------
 # HEADER
 # -----------------------
-
 st.write("Posez vos questions académiques ou utilisez le micro.")
 
 # -----------------------
 # HISTORIQUE
 # -----------------------
-
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # -----------------------
-# QUESTION VOCALE
+# AUDIO
 # -----------------------
-
 audio = st.audio_input("🎤 Posez votre question avec votre voix")
 
 if audio is not None:
-
     try:
         transcription = client.audio.transcriptions.create(
             file=("audio.wav", audio.getvalue()),
             model="whisper-large-v3"
         )
-
-        voice_prompt = transcription.text.strip()
-
-        if voice_prompt:
-            st.chat_message("user").markdown(voice_prompt)
-
-            st.session_state.messages.append({
-                "role": "user",
-                "content": voice_prompt
-            })
-
-    except Exception:
-        st.warning("Erreur lors de la transcription vocale")
+        text = transcription.text.strip()
+        if text:
+            st.chat_message("user").markdown(text)
+            st.session_state.messages.append({"role": "user", "content": text})
+    except:
+        st.warning("Erreur transcription")
 
 # -----------------------
-# QUESTION TEXTE
+# TEXTE
 # -----------------------
-
 prompt = st.chat_input("Posez votre question académique...")
 
 if prompt:
-
-    st.session_state.messages.append({
-        "role": "user",
-        "content": prompt
-    })
-
+    st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").markdown(prompt)
 
 # -----------------------
 # REPONSE IA
 # -----------------------
-
 if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
 
     with st.chat_message("assistant"):
@@ -229,13 +221,10 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
         placeholder = st.empty()
         full_response = ""
 
-        messages = [{"role":"system","content":SYSTEM_PROMPT}]
-
-        for msg in st.session_state.messages:
-            messages.append(msg)
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages += st.session_state.messages
 
         try:
-
             stream = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=messages,
@@ -245,7 +234,6 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             )
 
             for chunk in stream:
-
                 if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
                     placeholder.markdown(full_response + "▌")
@@ -256,13 +244,12 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             st.error(f"Erreur IA : {e}")
 
     st.session_state.messages.append({
-        "role":"assistant",
-        "content":full_response
+        "role": "assistant",
+        "content": full_response
     })
 
 # -----------------------
 # FOOTER
 # -----------------------
-
 st.markdown("---")
 st.markdown("Développé par **Julien Banze Kandolo**")
