@@ -39,6 +39,7 @@ padding:12px;
 # -----------------------
 # SUPABASE CONFIG
 # -----------------------
+# ⚠️ Utiliser uniquement l'anon public key et Project URL
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 
@@ -100,8 +101,8 @@ if not st.session_state.connecte:
                     ajouter_user(nom, email, matricule)
                     st.success("Inscription réussie 🎉")
                     st.session_state.connecte = True
-            except:
-                st.error("Erreur connexion base de données")
+            except Exception as e:
+                st.error(f"Erreur connexion base de données: {e}")
 
     st.stop()
 
