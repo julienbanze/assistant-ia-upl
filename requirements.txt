@@ -1,3 +1,5 @@
 streamlit>=1.37.0
 groq
 gtts
+supabase
+bcrypt
