@@ -1,5 +1,7 @@
 import streamlit as st
 from groq import Groq
+from gtts import gTTS
+import tempfile
 import logging
 from pathlib import Path
 
@@ -19,13 +21,12 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-
 .stApp {
     background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
     color: white;
 }
 
-h1, h2, h3 {
+h1 {
     color: #FFD700;
     text-align: center;
 }
@@ -37,13 +38,6 @@ h1, h2, h3 {
     background-color: #1e2a38;
     color: white;
 }
-
-.chat-message {
-    padding: 10px;
-    border-radius: 10px;
-    margin-bottom: 10px;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -76,7 +70,7 @@ def init_client():
 client = init_client()
 
 # -----------------------
-# ETAT SESSION
+# SESSION
 # -----------------------
 
 if "messages" not in st.session_state:
@@ -89,20 +83,17 @@ if "has_greeted" not in st.session_state:
     st.session_state.has_greeted = False
 
 # -----------------------
-# MODE (ETUDIANT / ENSEIGNANT)
+# SIDEBAR
 # -----------------------
 
 st.sidebar.title("⚙️ Paramètres")
 
 mode = st.sidebar.selectbox(
-    "Choisir le mode",
+    "Mode",
     ["Étudiant", "Enseignant"]
 )
 
 st.session_state.mode = mode
-
-st.sidebar.markdown("---")
-st.sidebar.write(f"Mode actuel : **{mode}**")
 
 # -----------------------
 # FILTRE ACADEMIQUE
@@ -112,7 +103,7 @@ def is_academic(question):
     mots_interdits = [
         "football","match","musique","chanson",
         "film","serie","amour","copine","copain",
-        "jeu","divertissement","buzz","people"
+        "jeu","divertissement","buzz"
     ]
 
     question = question.lower()
@@ -123,7 +114,7 @@ def is_academic(question):
     return True
 
 # -----------------------
-# PROMPT INTELLIGENT
+# PROMPT IA
 # -----------------------
 
 def get_system_prompt(mode):
@@ -132,38 +123,44 @@ def get_system_prompt(mode):
 Tu es un assistant académique professionnel.
 
 Règles STRICTES :
-
-- Tu réponds uniquement aux questions éducatives et académiques.
-- Refuse toute question hors sujet avec professionnalisme.
-- Ne salue qu'une seule fois au début.
-- Réponds de manière naturelle, claire et moderne.
-- Ne force pas introduction/développement/conclusion.
-- Si la question est floue, demande clarification.
+- Réponds uniquement aux questions éducatives
+- Refuse les sujets hors contexte
+- Ne salue qu'une seule fois
+- Réponds de manière claire et naturelle
 """
 
     if mode == "Étudiant":
         base += """
 Mode Étudiant :
-- Explique simplement
-- Utilise des exemples
-- Vulgarise au maximum
+- Explications simples
+- Exemples
 """
     else:
         base += """
 Mode Enseignant :
-- Réponses détaillées et structurées
+- Réponses détaillées
 - Niveau avancé
-- Ajoute des notions techniques
 """
 
     return base
+
+# -----------------------
+# TEXT TO SPEECH
+# -----------------------
+
+def text_to_speech(text):
+    tts = gTTS(text=text, lang='fr')
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    tts.save(temp_file.name)
+
+    return temp_file.name
 
 # -----------------------
 # HEADER
 # -----------------------
 
 st.markdown("# 🎓 Assistant Académique IA")
-st.write("Posez vos questions académiques uniquement.")
 
 # -----------------------
 # HISTORIQUE
@@ -174,16 +171,40 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # -----------------------
-# INPUT UTILISATEUR
+# AUDIO INPUT
 # -----------------------
 
-prompt = st.chat_input("Pose ta question académique...")
+audio = st.audio_input("🎤 Parlez")
+
+if audio is not None:
+    try:
+        transcription = client.audio.transcriptions.create(
+            file=("audio.wav", audio.getvalue()),
+            model="whisper-large-v3"
+        )
+
+        prompt = transcription.text.strip()
+
+        st.chat_message("user").markdown(prompt)
+
+        st.session_state.messages.append({
+            "role": "user",
+            "content": prompt
+        })
+
+    except:
+        st.warning("Erreur audio")
+
+# -----------------------
+# TEXTE INPUT
+# -----------------------
+
+prompt = st.chat_input("Pose ta question...")
 
 if prompt:
 
-    # FILTRAGE
     if not is_academic(prompt):
-        response = "Je suis un assistant académique conçu pour répondre uniquement aux questions éducatives. Merci de poser une question en lien avec l’apprentissage."
+        response = "Je suis un assistant académique conçu pour répondre uniquement aux questions éducatives."
 
         st.chat_message("assistant").markdown(response)
 
@@ -194,12 +215,12 @@ if prompt:
 
         st.stop()
 
+    st.chat_message("user").markdown(prompt)
+
     st.session_state.messages.append({
         "role": "user",
         "content": prompt
     })
-
-    st.chat_message("user").markdown(prompt)
 
 # -----------------------
 # REPONSE IA
@@ -214,7 +235,6 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
 
         SYSTEM_PROMPT = get_system_prompt(st.session_state.mode)
 
-        # GESTION SALUTATION
         if st.session_state.has_greeted:
             SYSTEM_PROMPT += "\nNe commence pas par une salutation."
         else:
@@ -222,7 +242,6 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-        # MEMOIRE INTELLIGENTE (limite à 10 derniers messages)
         for msg in st.session_state.messages[-10:]:
             messages.append(msg)
 
@@ -231,9 +250,7 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             stream = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=messages,
-                stream=True,
-                temperature=0.3,
-                max_tokens=2000
+                stream=True
             )
 
             for chunk in stream:
@@ -242,6 +259,10 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
                     placeholder.markdown(full_response + "▌")
 
             placeholder.markdown(full_response)
+
+            # 🔊 AUDIO RESPONSE
+            audio_file = text_to_speech(full_response)
+            st.audio(audio_file, format="audio/mp3")
 
         except Exception as e:
             st.error(f"Erreur IA : {e}")
