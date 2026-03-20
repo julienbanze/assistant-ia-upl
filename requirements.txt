@@ -1,4 +1,6 @@
 streamlit>=1.37.0
 groq
 gtts
+streamlit-authenticator
+pyyaml
 
