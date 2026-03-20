@@ -14,25 +14,34 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN
+# DESIGN PRO
 # -----------------------
 
 st.markdown("""
 <style>
 
-.main {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
-.stApp {background: linear-gradient(135deg,#1e3c72,#2a5298,#4a69bd)}
-
-h1{
-color:#ffd700;
-text-align:center;
-font-size:2.8em;
+.stApp {
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color: white;
 }
 
-.stChatInput input{
-border-radius:25px;
-border:2px solid #ffd700;
-padding:12px;
+h1, h2, h3 {
+    color: #FFD700;
+    text-align: center;
+}
+
+.stChatInput input {
+    border-radius: 25px;
+    border: 2px solid #FFD700;
+    padding: 12px;
+    background-color: #1e2a38;
+    color: white;
+}
+
+.chat-message {
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 10px;
 }
 
 </style>
@@ -67,30 +76,94 @@ def init_client():
 client = init_client()
 
 # -----------------------
-# PROMPT IA
-# -----------------------
-
-SYSTEM_PROMPT = """
-Tu es un assistant académique intelligent.
-
-Réponds toujours en français.
-
-et si un utilisateur pose une question qui n'est pas académique, réponds poliment que tu ne peux répondre qu'à des questions académiques et educative.
-"""
-
-# -----------------------
-# MEMOIRE CHAT
+# ETAT SESSION
 # -----------------------
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+if "mode" not in st.session_state:
+    st.session_state.mode = "Étudiant"
+
+if "has_greeted" not in st.session_state:
+    st.session_state.has_greeted = False
+
+# -----------------------
+# MODE (ETUDIANT / ENSEIGNANT)
+# -----------------------
+
+st.sidebar.title("⚙️ Paramètres")
+
+mode = st.sidebar.selectbox(
+    "Choisir le mode",
+    ["Étudiant", "Enseignant"]
+)
+
+st.session_state.mode = mode
+
+st.sidebar.markdown("---")
+st.sidebar.write(f"Mode actuel : **{mode}**")
+
+# -----------------------
+# FILTRE ACADEMIQUE
+# -----------------------
+
+def is_academic(question):
+    mots_interdits = [
+        "football","match","musique","chanson",
+        "film","serie","amour","copine","copain",
+        "jeu","divertissement","buzz","people"
+    ]
+
+    question = question.lower()
+
+    for mot in mots_interdits:
+        if mot in question:
+            return False
+    return True
+
+# -----------------------
+# PROMPT INTELLIGENT
+# -----------------------
+
+def get_system_prompt(mode):
+
+    base = """
+Tu es un assistant académique professionnel.
+
+Règles STRICTES :
+
+- Tu réponds uniquement aux questions éducatives et académiques.
+- Refuse toute question hors sujet avec professionnalisme.
+- Ne salue qu'une seule fois au début.
+- Réponds de manière naturelle, claire et moderne.
+- Ne force pas introduction/développement/conclusion.
+- Si la question est floue, demande clarification.
+"""
+
+    if mode == "Étudiant":
+        base += """
+Mode Étudiant :
+- Explique simplement
+- Utilise des exemples
+- Vulgarise au maximum
+"""
+    else:
+        base += """
+Mode Enseignant :
+- Réponses détaillées et structurées
+- Niveau avancé
+- Ajoute des notions techniques
+"""
+
+    return base
+
 # -----------------------
 # HEADER
 # -----------------------
 
-st.markdown("## 🎓 Assistant Académique IA")
-st.write("Posez vos questions académiques ou utilisez le micro.")
+st.markdown("# 🎓 Assistant Académique IA")
+st.write("Posez vos questions académiques uniquement.")
 
 # -----------------------
 # HISTORIQUE
@@ -101,39 +174,25 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # -----------------------
-# QUESTION VOCALE
+# INPUT UTILISATEUR
 # -----------------------
 
-audio = st.audio_input("🎤 Posez votre question avec votre voix")
-
-if audio is not None:
-
-    try:
-        transcription = client.audio.transcriptions.create(
-            file=("audio.wav", audio.getvalue()),
-            model="whisper-large-v3"
-        )
-
-        voice_prompt = transcription.text.strip()
-
-        if voice_prompt:
-            st.chat_message("user").markdown(voice_prompt)
-
-            st.session_state.messages.append({
-                "role": "user",
-                "content": voice_prompt
-            })
-
-    except Exception:
-        st.warning("Erreur lors de la transcription vocale")
-
-# -----------------------
-# QUESTION TEXTE
-# -----------------------
-
-prompt = st.chat_input("Posez votre question académique...")
+prompt = st.chat_input("Pose ta question académique...")
 
 if prompt:
+
+    # FILTRAGE
+    if not is_academic(prompt):
+        response = "Je suis un assistant académique conçu pour répondre uniquement aux questions éducatives. Merci de poser une question en lien avec l’apprentissage."
+
+        st.chat_message("assistant").markdown(response)
+
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response
+        })
+
+        st.stop()
 
     st.session_state.messages.append({
         "role": "user",
@@ -153,9 +212,18 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
         placeholder = st.empty()
         full_response = ""
 
-        messages = [{"role":"system","content":SYSTEM_PROMPT}]
+        SYSTEM_PROMPT = get_system_prompt(st.session_state.mode)
 
-        for msg in st.session_state.messages:
+        # GESTION SALUTATION
+        if st.session_state.has_greeted:
+            SYSTEM_PROMPT += "\nNe commence pas par une salutation."
+        else:
+            st.session_state.has_greeted = True
+
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+        # MEMOIRE INTELLIGENTE (limite à 10 derniers messages)
+        for msg in st.session_state.messages[-10:]:
             messages.append(msg)
 
         try:
@@ -164,12 +232,11 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
                 model="llama-3.3-70b-versatile",
                 messages=messages,
                 stream=True,
-                temperature=0.2,
-                max_tokens=1500
+                temperature=0.3,
+                max_tokens=2000
             )
 
             for chunk in stream:
-
                 if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
                     placeholder.markdown(full_response + "▌")
@@ -180,8 +247,8 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             st.error(f"Erreur IA : {e}")
 
     st.session_state.messages.append({
-        "role":"assistant",
-        "content":full_response
+        "role": "assistant",
+        "content": full_response
     })
 
 # -----------------------
@@ -189,5 +256,4 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
 # -----------------------
 
 st.markdown("---")
-st.markdown("Développé par **Julien Banze Kandolo**")
-
+st.markdown("Développé par **Julien Banze Kandolo** 🚀")
