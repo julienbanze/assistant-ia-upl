@@ -4,6 +4,9 @@ from gtts import gTTS
 import tempfile
 import logging
 from pathlib import Path
+import streamlit_authenticator as stauth
+import yaml
+from yaml.loader import SafeLoader
 
 # -----------------------
 # CONFIG PAGE
@@ -16,7 +19,7 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN PRO
+# DESIGN
 # -----------------------
 
 st.markdown("""
@@ -56,70 +59,97 @@ logging.basicConfig(
 )
 
 # -----------------------
-# GROQ CLIENT
+# AUTHENTIFICATION
 # -----------------------
 
-@st.cache_resource
-def init_client():
-    try:
-        return Groq(api_key=st.secrets["GROQ_API_KEY"])
-    except:
-        st.error("Ajoutez GROQ_API_KEY dans Settings > Secrets")
-        st.stop()
+with open("config.yaml") as file:
+    config = yaml.load(file, Loader=SafeLoader)
 
-client = init_client()
-
-# -----------------------
-# SESSION
-# -----------------------
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "mode" not in st.session_state:
-    st.session_state.mode = "Étudiant"
-
-if "has_greeted" not in st.session_state:
-    st.session_state.has_greeted = False
-
-# -----------------------
-# SIDEBAR
-# -----------------------
-
-st.sidebar.title("⚙️ Paramètres")
-
-mode = st.sidebar.selectbox(
-    "Mode",
-    ["Étudiant", "Enseignant"]
+authenticator = stauth.Authenticate(
+    config['credentials'],
+    config['cookie']['name'],
+    config['cookie']['key'],
+    config['cookie']['expiry_days']
 )
 
-st.session_state.mode = mode
+name, authentication_status, username = authenticator.login("🔐 Login", "main")
 
-# -----------------------
-# FILTRE ACADEMIQUE
-# -----------------------
+if authentication_status == False:
+    st.error("Nom ou mot de passe incorrect")
 
-def is_academic(question):
-    mots_interdits = [
-        "football","match","musique","chanson",
-        "film","serie","amour","copine","copain",
-        "jeu","divertissement","buzz"
-    ]
+elif authentication_status == None:
+    st.warning("Veuillez vous connecter")
 
-    question = question.lower()
+elif authentication_status:
 
-    for mot in mots_interdits:
-        if mot in question:
-            return False
-    return True
+    authenticator.logout("Déconnexion", "sidebar")
+    st.sidebar.write(f"Bienvenue {name}")
 
-# -----------------------
-# PROMPT IA
-# -----------------------
+    # -----------------------
+    # GROQ CLIENT
+    # -----------------------
 
-def get_system_prompt(mode):
+    @st.cache_resource
+    def init_client():
+        try:
+            return Groq(api_key=st.secrets["GROQ_API_KEY"])
+        except:
+            st.error("Ajoutez GROQ_API_KEY dans Settings > Secrets")
+            st.stop()
 
-    base = """
+    client = init_client()
+
+    # -----------------------
+    # SESSION
+    # -----------------------
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    if "mode" not in st.session_state:
+        st.session_state.mode = "Étudiant"
+
+    if "has_greeted" not in st.session_state:
+        st.session_state.has_greeted = False
+
+    # -----------------------
+    # SIDEBAR
+    # -----------------------
+
+    st.sidebar.title("⚙️ Paramètres")
+
+    mode = st.sidebar.selectbox(
+        "Mode",
+        ["Étudiant", "Enseignant"]
+    )
+
+    st.session_state.mode = mode
+
+    # -----------------------
+    # FILTRE ACADEMIQUE
+    # -----------------------
+
+    def is_academic(question):
+        mots_interdits = [
+            "football","match","musique","chanson",
+            "film","serie","amour","copine","copain",
+            "jeu","divertissement","buzz"
+        ]
+
+        question = question.lower()
+
+        for mot in mots_interdits:
+            if mot in question:
+                return False
+        return True
+
+    # -----------------------
+    # PROMPT IA
+    # -----------------------
+
+    def get_system_prompt(mode):
+
+        base = """
 Tu es un assistant académique professionnel.
 
 Règles STRICTES :
@@ -129,61 +159,89 @@ Règles STRICTES :
 - Réponds de manière claire et naturelle
 """
 
-    if mode == "Étudiant":
-        base += """
+        if mode == "Étudiant":
+            base += """
 Mode Étudiant :
 - Explications simples
 - Exemples
 """
-    else:
-        base += """
+        else:
+            base += """
 Mode Enseignant :
 - Réponses détaillées
 - Niveau avancé
 """
 
-    return base
+        return base
 
-# -----------------------
-# TEXT TO SPEECH
-# -----------------------
+    # -----------------------
+    # TEXT TO SPEECH
+    # -----------------------
 
-def text_to_speech(text):
-    tts = gTTS(text=text, lang='fr')
+    def text_to_speech(text):
+        tts = gTTS(text=text, lang='fr')
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+        tts.save(temp_file.name)
+        return temp_file.name
 
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    tts.save(temp_file.name)
+    # -----------------------
+    # HEADER
+    # -----------------------
 
-    return temp_file.name
+    st.markdown("# 🎓 Assistant Académique IA")
 
-# -----------------------
-# HEADER
-# -----------------------
+    # -----------------------
+    # HISTORIQUE
+    # -----------------------
 
-st.markdown("# 🎓 Assistant Académique IA")
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
-# -----------------------
-# HISTORIQUE
-# -----------------------
+    # -----------------------
+    # AUDIO INPUT
+    # -----------------------
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+    audio = st.audio_input("🎤 Parlez")
 
-# -----------------------
-# AUDIO INPUT
-# -----------------------
+    if audio is not None:
+        try:
+            transcription = client.audio.transcriptions.create(
+                file=("audio.wav", audio.getvalue()),
+                model="whisper-large-v3"
+            )
 
-audio = st.audio_input("🎤 Parlez")
+            prompt_voice = transcription.text.strip()
 
-if audio is not None:
-    try:
-        transcription = client.audio.transcriptions.create(
-            file=("audio.wav", audio.getvalue()),
-            model="whisper-large-v3"
-        )
+            st.chat_message("user").markdown(prompt_voice)
 
-        prompt = transcription.text.strip()
+            st.session_state.messages.append({
+                "role": "user",
+                "content": prompt_voice
+            })
+
+        except:
+            st.warning("Erreur audio")
+
+    # -----------------------
+    # TEXTE INPUT
+    # -----------------------
+
+    prompt = st.chat_input("Pose ta question...")
+
+    if prompt:
+
+        if not is_academic(prompt):
+            response = "Je suis un assistant académique conçu pour répondre uniquement aux questions éducatives."
+
+            st.chat_message("assistant").markdown(response)
+
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": response
+            })
+
+            st.stop()
 
         st.chat_message("user").markdown(prompt)
 
@@ -192,89 +250,59 @@ if audio is not None:
             "content": prompt
         })
 
-    except:
-        st.warning("Erreur audio")
+    # -----------------------
+    # REPONSE IA
+    # -----------------------
 
-# -----------------------
-# TEXTE INPUT
-# -----------------------
+    if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
 
-prompt = st.chat_input("Pose ta question...")
+        with st.chat_message("assistant"):
 
-if prompt:
+            placeholder = st.empty()
+            full_response = ""
 
-    if not is_academic(prompt):
-        response = "Je suis un assistant académique conçu pour répondre uniquement aux questions éducatives."
+            SYSTEM_PROMPT = get_system_prompt(st.session_state.mode)
 
-        st.chat_message("assistant").markdown(response)
+            if st.session_state.has_greeted:
+                SYSTEM_PROMPT += "\nNe commence pas par une salutation."
+            else:
+                st.session_state.has_greeted = True
+
+            messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+            for msg in st.session_state.messages[-10:]:
+                messages.append(msg)
+
+            try:
+
+                stream = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=messages,
+                    stream=True
+                )
+
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        full_response += chunk.choices[0].delta.content
+                        placeholder.markdown(full_response + "▌")
+
+                placeholder.markdown(full_response)
+
+                # AUDIO
+                audio_file = text_to_speech(full_response)
+                st.audio(audio_file, format="audio/mp3")
+
+            except Exception as e:
+                st.error(f"Erreur IA : {e}")
 
         st.session_state.messages.append({
             "role": "assistant",
-            "content": response
+            "content": full_response
         })
 
-        st.stop()
+    # -----------------------
+    # FOOTER
+    # -----------------------
 
-    st.chat_message("user").markdown(prompt)
-
-    st.session_state.messages.append({
-        "role": "user",
-        "content": prompt
-    })
-
-# -----------------------
-# REPONSE IA
-# -----------------------
-
-if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
-
-    with st.chat_message("assistant"):
-
-        placeholder = st.empty()
-        full_response = ""
-
-        SYSTEM_PROMPT = get_system_prompt(st.session_state.mode)
-
-        if st.session_state.has_greeted:
-            SYSTEM_PROMPT += "\nNe commence pas par une salutation."
-        else:
-            st.session_state.has_greeted = True
-
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-        for msg in st.session_state.messages[-10:]:
-            messages.append(msg)
-
-        try:
-
-            stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=messages,
-                stream=True
-            )
-
-            for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    full_response += chunk.choices[0].delta.content
-                    placeholder.markdown(full_response + "▌")
-
-            placeholder.markdown(full_response)
-
-            # 🔊 AUDIO RESPONSE
-            audio_file = text_to_speech(full_response)
-            st.audio(audio_file, format="audio/mp3")
-
-        except Exception as e:
-            st.error(f"Erreur IA : {e}")
-
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": full_response
-    })
-
-# -----------------------
-# FOOTER
-# -----------------------
-
-st.markdown("---")
-st.markdown("Développé par **Julien Banze Kandolo** 🚀")
+    st.markdown("---")
+    st.markdown("Développé par **Julien Banze Kandolo** 🚀")
