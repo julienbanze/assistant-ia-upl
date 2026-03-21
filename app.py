@@ -4,110 +4,158 @@ from gtts import gTTS
 import tempfile
 from supabase import create_client
 import bcrypt
+import os
 
-# --- CONFIG ---
+# --- 1. CONFIGURATION DE LA PAGE ---
 st.set_page_config(page_title="Assistant IA 🎓", layout="wide")
 
-# --- INITIALISATION ---
-if "user" not in st.session_state: st.session_state.user = None
-if "messages" not in st.session_state: st.session_state.messages = []
+# --- 2. INITIALISATION DU SESSION STATE ---
+if "user" not in st.session_state:
+    st.session_state.user = None
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# --- CONNEXION SUPABASE ---
+# --- 3. CONNEXION SUPABASE ---
 try:
-    supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+    SUPABASE_URL = st.secrets["SUPABASE_URL"]
+    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
-    st.error("Erreur de configuration Secrets.")
+    st.error("⚠️ Erreur de configuration : Vérifiez vos Secrets Streamlit (URL et KEY).")
     st.stop()
 
-# --- FONCTIONS RÉSILIENTES ---
+# --- 4. FONCTIONS UTILITAIRES ---
 def hash_password(password):
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 def check_password(password, hashed):
     try:
         return bcrypt.checkpw(password.encode(), hashed.encode())
-    except: return False
-
-def login(username, password):
-    try:
-        res = supabase.table("utilisateurs").select("*").eq("username", username).execute()
-        if res.data:
-            return check_password(password, res.data[0]["password"])
-    except Exception as e:
-        st.error(f"Erreur DB : {e}")
-    return False
-
-def register(username, password):
-    try:
-        hashed = hash_password(password)
-        supabase.table("utilisateurs").insert({"username": username, "password": hashed}).execute()
-        st.success("Compte créé !")
     except:
-        st.error("Ce nom d'utilisateur est déjà pris.")
+        return False
 
-def save_msg(user, role, content):
+# --- 5. LOGIQUE DE CHAT & DB ---
+def save_msg_to_db(user, role, content):
     try:
-        supabase.table("messages").insert({"username": user, "role": role, "content": content}).execute()
-    except: pass
+        supabase.table("messages").insert({
+            "username": user, 
+            "role": role, 
+            "content": content
+        }).execute()
+    except Exception as e:
+        st.warning(f"Note : Impossible de sauvegarder le message en ligne ({e})")
 
-# --- UI AUTH ---
-if not st.session_state.user:
-    st.title("🔐 Connexion")
-    t1, t2 = st.tabs(["Login", "Inscription"])
-    with t1:
-        u = st.text_input("Pseudo")
-        p = st.text_input("Pass", type="password")
-        if st.button("Entrer"):
-            if login(u, p):
-                st.session_state.user = u
-                # Charger l'historique
-                hist = supabase.table("messages").select("*").eq("username", u).order("created_at").execute()
-                st.session_state.messages = [{"role": m["role"], "content": m["content"]} for m in hist.data]
-                st.rerun()
-            else: st.error("Échec")
-    with t2:
-        u2, p2 = st.text_input("Nouveau"), st.text_input("Nouveau Pass", type="password")
-        if st.button("Créer"): register(u2, p2)
+def load_chat_history(username):
+    try:
+        res = supabase.table("messages").select("*").eq("username", username).order("created_at").execute()
+        return [{"role": m["role"], "content": m["content"]} for m in res.data]
+    except Exception as e:
+        st.error(f"Erreur de chargement de l'historique : {e}")
+        return []
+
+# --- 6. INTERFACE D'AUTHENTIFICATION ---
+if st.session_state.user is None:
+    st.title("🔐 Assistant Académique")
+    tab1, tab2 = st.tabs(["Connexion", "Créer un compte"])
+
+    with tab1:
+        u = st.text_input("Nom d'utilisateur", key="login_u")
+        p = st.text_input("Mot de passe", type="password", key="login_p")
+        if st.button("Se connecter"):
+            try:
+                res = supabase.table("utilisateurs").select("*").eq("username", u).execute()
+                if res.data and check_password(p, res.data[0]["password"]):
+                    st.session_state.user = u
+                    st.session_state.messages = load_chat_history(u)
+                    st.rerun()
+                else:
+                    st.error("Utilisateur ou mot de passe incorrect.")
+            except Exception as e:
+                st.error(f"Erreur de connexion à la base : {e}")
+
+    with tab2:
+        u2 = st.text_input("Choisir un pseudo", key="reg_u")
+        p2 = st.text_input("Choisir un mot de passe", type="password", key="reg_p")
+        if st.button("S'inscrire"):
+            if u2 and p2:
+                try:
+                    hashed = hash_password(p2)
+                    supabase.table("utilisateurs").insert({"username": u2, "password": hashed}).execute()
+                    st.success("Compte créé ! Connectez-vous maintenant.")
+                except:
+                    st.error("Ce pseudo est déjà utilisé ou la table est introuvable.")
+            else:
+                st.warning("Veuillez remplir tous les champs.")
     st.stop()
 
-# --- INTERFACE CHAT ---
+# --- 7. INTERFACE PRINCIPALE (APRES CONNEXION) ---
 st.sidebar.title(f"👤 {st.session_state.user}")
+mode = st.sidebar.selectbox("Mode de réponse", ["Étudiant (Simple)", "Enseignant (Détaillé)"])
+
+if st.sidebar.button("🗑️ Effacer l'historique"):
+    try:
+        supabase.table("messages").delete().eq("username", st.session_state.user).execute()
+        st.session_state.messages = []
+        st.rerun()
+    except:
+        st.error("Erreur lors de la suppression.")
+
 if st.sidebar.button("Déconnexion"):
     st.session_state.clear()
     st.rerun()
 
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+# --- 8. MOTEUR IA (GROQ) ---
+try:
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+except:
+    st.error("Clé API GROQ manquante dans les secrets.")
+    st.stop()
 
+# Affichage des messages
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): st.write(msg["content"])
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-if prompt := st.chat_input("Ta question..."):
-    st.chat_message("user").write(prompt)
+# Entrée utilisateur
+if prompt := st.chat_input("Posez votre question académique..."):
+    # Affichage utilisateur
+    st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
-    save_msg(st.session_state.user, "user", prompt)
+    save_msg_to_db(st.session_state.user, "user", prompt)
 
+    # Réponse Assistant
     with st.chat_message("assistant"):
-        resp = ""
-        container = st.empty()
-        # Appel API Groq
+        full_res = ""
+        placeholder = st.empty()
+        
+        system_msg = "Tu es un assistant académique. "
+        system_msg += "Explique simplement." if "Étudiant" in mode else "Sois très détaillé et technique."
+        
+        # Contexte pour l'IA
+        context = [{"role": "system", "content": system_msg}] + st.session_state.messages[-6:]
+
         stream = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role": "system", "content": "Assistant académique."}] + st.session_state.messages[-5:],
+            messages=context,
             stream=True
         )
-        for chunk in stream:
-            content = chunk.choices[0].delta.content
-            if content:
-                resp += content
-                container.write(resp)
-        
-        # Audio gTTS
-        try:
-            tts = gTTS(text=resp[:300], lang='fr')
-            with tempfile.NamedTemporaryFile(delete=True, suffix=".mp3") as fp:
-                tts.save(fp.name)
-                st.audio(fp.name)
-        except: pass
 
-    st.session_state.messages.append({"role": "assistant", "content": resp})
-    save_msg(st.session_state.user, "assistant", resp)
+        for chunk in stream:
+            if chunk.choices[0].delta.content:
+                full_res += chunk.choices[0].delta.content
+                placeholder.markdown(full_res + "▌")
+        
+        placeholder.markdown(full_res)
+
+        # Audio (gTTS)
+        try:
+            tts = gTTS(text=full_res[:400], lang='fr')
+            f = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+            tts.save(f.name)
+            st.audio(f.name)
+        except:
+            pass
+
+    # Sauvegarde assistant
+    st.session_state.messages.append({"role": "assistant", "content": full_res})
+    save_msg_to_db(st.session_state.user, "assistant", full_res)
