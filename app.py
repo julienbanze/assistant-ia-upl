@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN ÉPURÉ (SANS CONTOURS)
+# DESIGN PRO & CUSTOM CSS (WHATSAPP STYLE)
 # -----------------------
 
 st.markdown("""
@@ -32,57 +32,48 @@ h1 {
     text-align: center;
 }
 
-/* --- SUPPRESSION TOTALE DES BORDURES --- */
+/* --- MODIFICATIONS WHATSAPP STYLE --- */
 
-/* On retire toutes les bordures et ombres du conteneur Streamlit */
-div[data-testid="stChatInput"], 
-div[data-testid="stChatInput"] fieldset,
-div[data-baseweb="base-input"],
-div[data-baseweb="input"] {
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
+/* 1. Supprimer le contour rouge et styliser le champ de saisie */
+div[data-testid="stChatInput"] {
+    border: 2px solid #25D366 !important; /* Contour vert uniquement */
+    border-radius: 30px !important;
+    padding: 5px !important;
+    background-color: #1e2a38 !important;
+}
+
+div[data-testid="stChatInput"] textarea {
+    color: white !important;
     background-color: transparent !important;
 }
 
-/* Style du champ de texte sans contour */
-div[data-testid="stChatInput"] textarea {
-    background-color: #1e2a38 !important;
-    color: white !important;
-    border-radius: 25px !important;
-    border: none !important; /* Pas de bordure par défaut */
-    padding-right: 45px !important;
-    box-shadow: none !important;
+/* Supprime la bordure rouge de Streamlit au clic (focus) */
+div[data-testid="stChatInput"]:focus-within {
+    border-color: #25D366 !important;
+    box-shadow: 0 0 10px rgba(37, 211, 102, 0.5) !important;
 }
 
-/* On s'assure qu'aucun contour n'apparaît au clic */
-div[data-testid="stChatInput"] textarea:focus {
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-}
-
-/* --- BOUTON ENVOI STYLE WHATSAPP --- */
+/* 2. Transformer le bouton d'envoi en bouton WhatsApp */
 div[data-testid="stChatInput"] button {
     background-color: #25D366 !important; /* Vert WhatsApp */
     border-radius: 50% !important;
-    right: 12px !important;
-    bottom: 10px !important;
-    width: 38px !important;
-    height: 38px !important;
+    color: white !important;
     border: none !important;
+    height: 40px !important;
+    width: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
+/* Changer l'icône du bouton (SVG) en blanc */
 div[data-testid="stChatInput"] button svg {
-    color: white !important;
     fill: white !important;
 }
 
-/* Suppression des effets de focus sur le bouton */
-div[data-testid="stChatInput"] button:focus, 
-div[data-testid="stChatInput"] button:active {
+/* Cacher les bordures par défaut de Streamlit */
+[data-testid="stChatInput"] {
     outline: none !important;
-    box-shadow: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -92,9 +83,13 @@ div[data-testid="stChatInput"] button:active {
 # -----------------------
 
 Path("logs").mkdir(exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
-    handlers=[logging.FileHandler("logs/app.log"), logging.StreamHandler()]
+    handlers=[
+        logging.FileHandler("logs/app.log"),
+        logging.StreamHandler()
+    ]
 )
 
 # -----------------------
@@ -105,7 +100,7 @@ logging.basicConfig(
 def init_client():
     try:
         return Groq(api_key=st.secrets["GROQ_API_KEY"])
-    except Exception:
+    except:
         st.error("Ajoutez GROQ_API_KEY dans Settings > Secrets")
         st.stop()
 
@@ -117,8 +112,10 @@ client = init_client()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
 if "mode" not in st.session_state:
     st.session_state.mode = "Étudiant"
+
 if "has_greeted" not in st.session_state:
     st.session_state.has_greeted = False
 
@@ -127,7 +124,12 @@ if "has_greeted" not in st.session_state:
 # -----------------------
 
 st.sidebar.title("⚙️ Paramètres")
-mode = st.sidebar.selectbox("Mode", ["Étudiant", "Enseignant"])
+
+mode = st.sidebar.selectbox(
+    "Mode",
+    ["Étudiant", "Enseignant"]
+)
+
 st.session_state.mode = mode
 
 # -----------------------
@@ -135,20 +137,47 @@ st.session_state.mode = mode
 # -----------------------
 
 def is_academic(question):
-    mots_interdits = ["football","match","musique","chanson","film","serie","amour","copine","copain","jeu","divertissement","buzz"]
+    mots_interdits = [
+        "football","match","musique","chanson",
+        "film","serie","amour","copine","copain",
+        "jeu","divertissement","buzz"
+    ]
+
     question = question.lower()
-    return not any(mot in question for mot in mots_interdits)
+
+    for mot in mots_interdits:
+        if mot in question:
+            return False
+    return True
 
 # -----------------------
 # PROMPT IA
 # -----------------------
 
 def get_system_prompt(mode):
-    base = "Tu es un assistant académique professionnel.\n\nRègles STRICTES :\n- Réponds uniquement aux questions éducatives\n- Refuse les sujets hors contexte\n- Ne salue qu'une seule fois\n- Réponds de manière claire et naturelle"
+    base = """
+Tu es un assistant académique professionnel.
+
+Règles STRICTES :
+- Réponds uniquement aux questions éducatives
+- Refuse les sujets hors contexte
+- Ne salue qu'une seule fois
+- Réponds de manière claire et naturelle
+"""
+
     if mode == "Étudiant":
-        base += "\n\nMode Étudiant :\n- Explications simples\n- Exemples"
+        base += """
+Mode Étudiant :
+- Explications simples
+- Exemples
+"""
     else:
-        base += "\n\nMode Enseignant :\n- Réponses détaillées\n- Niveau avancé"
+        base += """
+Mode Enseignant :
+- Réponses détaillées
+- Niveau avancé
+"""
+
     return base
 
 # -----------------------
@@ -157,8 +186,10 @@ def get_system_prompt(mode):
 
 def text_to_speech(text):
     tts = gTTS(text=text, lang='fr')
+
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     tts.save(temp_file.name)
+
     return temp_file.name
 
 # -----------------------
@@ -180,16 +211,24 @@ for msg in st.session_state.messages:
 # -----------------------
 
 audio = st.audio_input("🎤 Parlez")
+
 if audio is not None:
     try:
         transcription = client.audio.transcriptions.create(
             file=("audio.wav", audio.getvalue()),
             model="whisper-large-v3"
         )
-        prompt_audio = transcription.text.strip()
-        st.chat_message("user").markdown(prompt_audio)
-        st.session_state.messages.append({"role": "user", "content": prompt_audio})
-    except Exception:
+
+        prompt = transcription.text.strip()
+
+        st.chat_message("user").markdown(prompt)
+
+        st.session_state.messages.append({
+            "role": "user",
+            "content": prompt
+        })
+
+    except:
         st.warning("Erreur audio")
 
 # -----------------------
@@ -197,24 +236,39 @@ if audio is not None:
 # -----------------------
 
 prompt = st.chat_input("Pose ta question...")
+
 if prompt:
+
     if not is_academic(prompt):
         response = "Je suis un assistant académique conçu pour répondre uniquement aux questions éducatives."
+
         st.chat_message("assistant").markdown(response)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response
+        })
+
         st.stop()
 
     st.chat_message("user").markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    st.session_state.messages.append({
+        "role": "user",
+        "content": prompt
+    })
 
 # -----------------------
 # REPONSE IA
 # -----------------------
 
 if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
+
     with st.chat_message("assistant"):
+
         placeholder = st.empty()
         full_response = ""
+
         SYSTEM_PROMPT = get_system_prompt(st.session_state.mode)
 
         if st.session_state.has_greeted:
@@ -223,6 +277,7 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             st.session_state.has_greeted = True
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
         for msg in st.session_state.messages[-10:]:
             messages.append(msg)
 
@@ -232,17 +287,25 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
                 messages=messages,
                 stream=True
             )
+
             for chunk in stream:
                 if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
                     placeholder.markdown(full_response + "▌")
+
             placeholder.markdown(full_response)
+
+            # 🔊 AUDIO RESPONSE
             audio_file = text_to_speech(full_response)
             st.audio(audio_file, format="audio/mp3")
+
         except Exception as e:
             st.error(f"Erreur IA : {e}")
 
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": full_response
+    })
 
 # -----------------------
 # FOOTER
