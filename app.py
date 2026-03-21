@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN PRO & CUSTOM CSS (WHATSAPP STYLE)
+# DESIGN : BOUTON WHATSAPP UNIQUEMENT
 # -----------------------
 
 st.markdown("""
@@ -32,48 +32,32 @@ h1 {
     text-align: center;
 }
 
-/* --- MODIFICATIONS WHATSAPP STYLE --- */
-
-/* 1. Supprimer le contour rouge et styliser le champ de saisie */
+/* 1. Suppression de la bordure rouge au focus/clic */
 div[data-testid="stChatInput"] {
-    border: 2px solid #25D366 !important; /* Contour vert uniquement */
-    border-radius: 30px !important;
-    padding: 5px !important;
-    background-color: #1e2a38 !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
-div[data-testid="stChatInput"] textarea {
-    color: white !important;
-    background-color: transparent !important;
-}
-
-/* Supprime la bordure rouge de Streamlit au clic (focus) */
 div[data-testid="stChatInput"]:focus-within {
-    border-color: #25D366 !important;
-    box-shadow: 0 0 10px rgba(37, 211, 102, 0.5) !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
-/* 2. Transformer le bouton d'envoi en bouton WhatsApp */
+/* 2. Transformation du bouton en style WhatsApp */
 div[data-testid="stChatInput"] button {
     background-color: #25D366 !important; /* Vert WhatsApp */
     border-radius: 50% !important;
     color: white !important;
     border: none !important;
-    height: 40px !important;
-    width: 40px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    height: 35px !important;
+    width: 35px !important;
+    margin-bottom: 5px !important;
 }
 
-/* Changer l'icône du bouton (SVG) en blanc */
+/* Icône du bouton en blanc */
 div[data-testid="stChatInput"] button svg {
     fill: white !important;
-}
-
-/* Cacher les bordures par défaut de Streamlit */
-[data-testid="stChatInput"] {
-    outline: none !important;
 }
 </style>
 """, unsafe_allow_html=True)
