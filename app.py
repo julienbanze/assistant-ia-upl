@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN PRO (MODIFIÉ)
+# DESIGN PRO (CORRIGÉ)
 # -----------------------
 
 st.markdown("""
@@ -34,22 +34,31 @@ h1 {
 
 /* --- MODIFICATIONS CHAMPS DE SAISIE --- */
 
-/* Suppression du contour rouge et styling du champ */
+/* 1. On supprime la bordure rouge globale du conteneur Streamlit */
 div[data-testid="stChatInput"] {
     border: none !important;
+    box-shadow: none !important;
 }
 
+/* 2. Style du champ de texte lui-même */
 div[data-testid="stChatInput"] textarea {
     background-color: #1e2a38 !important;
     color: white !important;
     border-radius: 25px !important;
-    border: 1px solid #3d4b5c !important; /* Bordure discrète */
+    border: 1px solid #3d4b5c !important; 
+    padding-right: 45px !important; /* Espace pour le bouton */
 }
 
-/* Suppression de l'effet rouge au clic/focus */
+/* 3. Suppression totale du contour rouge au clic (Focus) */
 div[data-testid="stChatInput"] textarea:focus {
-    box-shadow: none !important;
-    border: 1px solid #25D366 !important; /* Bordure verte WhatsApp au focus */
+    box-shadow: 0 0 0 2px #25D366 !important; /* On remplace par un halo vert subtil */
+    border: 1px solid #25D366 !important;
+}
+
+/* 4. On s'assure que le conteneur parent ne force pas le rouge */
+div[data-baseweb="base-input"] {
+    border: none !important;
+    outline: none !important;
 }
 
 /* --- BOUTON ENVOI STYLE WHATSAPP --- */
@@ -57,24 +66,27 @@ div[data-testid="stChatInput"] button {
     background-color: #25D366 !important; /* Vert WhatsApp */
     border-radius: 50% !important;
     right: 10px !important;
-    bottom: 5px !important;
-    width: 40px !important;
-    height: 40px !important;
-}
-
-/* Remplacement de l'icône par un avion en papier */
-div[data-testid="stChatInput"] button svg {
-    display: none !important; /* Cache l'icône originale */
-}
-
-div[data-testid="stChatInput"] button::after {
-    content: "➤" !important; /* Symbole avion */
-    color: white !important;
-    font-size: 20px !important;
+    bottom: 6px !important;
+    width: 35px !important;
+    height: 35px !important;
     display: flex !important;
-    justify-content: center !important;
     align-items: center !important;
+    justify-content: center !important;
+    border: none !important;
 }
+
+/* Icône d'envoi blanche */
+div[data-testid="stChatInput"] button svg {
+    color: white !important;
+    width: 20px !important;
+    height: 20px !important;
+}
+
+/* Effet au survol du bouton */
+div[data-testid="stChatInput"] button:hover {
+    background-color: #128C7E !important; /* Vert plus foncé au survol */
+}
+
 </style>
 """, unsafe_allow_html=True)
 
