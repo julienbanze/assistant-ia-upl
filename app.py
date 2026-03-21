@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN PRO (CORRIGÉ)
+# DESIGN PRO (ÉLIMINATION TOTALE DU ROUGE)
 # -----------------------
 
 st.markdown("""
@@ -32,61 +32,78 @@ h1 {
     text-align: center;
 }
 
-/* --- MODIFICATIONS CHAMPS DE SAISIE --- */
+/* --- NETTOYAGE DU CHAMP DE SAISIE --- */
 
-/* 1. On supprime la bordure rouge globale du conteneur Streamlit */
+/* On supprime la bordure rouge sur TOUS les états du conteneur parent */
 div[data-testid="stChatInput"] {
     border: none !important;
     box-shadow: none !important;
 }
 
-/* 2. Style du champ de texte lui-même */
+/* Ciblage du cadre extérieur (fieldset) pour forcer la disparition du rouge */
+div[data-testid="stChatInput"] fieldset {
+    border: none !important;
+    outline: none !important;
+}
+
+/* Ciblage du conteneur interne BaseWeb */
+div[data-baseweb="base-input"], div[data-baseweb="input"] {
+    border: none !important;
+    outline: none !important;
+    background-color: transparent !important;
+}
+
+/* Style du champ de texte (textarea) */
 div[data-testid="stChatInput"] textarea {
     background-color: #1e2a38 !important;
     color: white !important;
     border-radius: 25px !important;
     border: 1px solid #3d4b5c !important; 
-    padding-right: 45px !important; /* Espace pour le bouton */
+    padding-right: 45px !important;
+    caret-color: #25D366 !important; /* Curseur vert */
 }
 
-/* 3. Suppression totale du contour rouge au clic (Focus) */
+/* On force le contour VERT uniquement lors de la saisie */
 div[data-testid="stChatInput"] textarea:focus {
-    box-shadow: 0 0 0 2px #25D366 !important; /* On remplace par un halo vert subtil */
+    box-shadow: 0 0 0 2px #25D366 !important; 
     border: 1px solid #25D366 !important;
+    outline: none !important;
 }
 
-/* 4. On s'assure que le conteneur parent ne force pas le rouge */
-div[data-baseweb="base-input"] {
-    border: none !important;
-    outline: none !important;
+/* Suppression de l'ombre de focus par défaut de Streamlit */
+.stChatInput:focus-within {
+    box-shadow: none !important;
 }
 
 /* --- BOUTON ENVOI STYLE WHATSAPP --- */
 div[data-testid="stChatInput"] button {
     background-color: #25D366 !important; /* Vert WhatsApp */
     border-radius: 50% !important;
-    right: 10px !important;
-    bottom: 6px !important;
-    width: 35px !important;
-    height: 35px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    right: 12px !important;
+    bottom: 10px !important;
+    width: 38px !important;
+    height: 38px !important;
     border: none !important;
+    transition: transform 0.2s ease;
+}
+
+div[data-testid="stChatInput"] button:hover {
+    transform: scale(1.1);
+    background-color: #128C7E !important;
 }
 
 /* Icône d'envoi blanche */
 div[data-testid="stChatInput"] button svg {
     color: white !important;
-    width: 20px !important;
-    height: 20px !important;
+    fill: white !important;
 }
 
-/* Effet au survol du bouton */
-div[data-testid="stChatInput"] button:hover {
-    background-color: #128C7E !important; /* Vert plus foncé au survol */
+/* Désactivation des contours sur le bouton */
+div[data-testid="stChatInput"] button:focus, 
+div[data-testid="stChatInput"] button:active {
+    outline: none !important;
+    box-shadow: none !important;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -112,7 +129,7 @@ logging.basicConfig(
 def init_client():
     try:
         return Groq(api_key=st.secrets["GROQ_API_KEY"])
-    except:
+    except Exception:
         st.error("Ajoutez GROQ_API_KEY dans Settings > Secrets")
         st.stop()
 
@@ -167,7 +184,6 @@ def is_academic(question):
 # -----------------------
 
 def get_system_prompt(mode):
-
     base = """
 Tu es un assistant académique professionnel.
 
@@ -177,20 +193,10 @@ Règles STRICTES :
 - Ne salue qu'une seule fois
 - Réponds de manière claire et naturelle
 """
-
     if mode == "Étudiant":
-        base += """
-Mode Étudiant :
-- Explications simples
-- Exemples
-"""
+        base += "\nMode Étudiant :\n- Explications simples\n- Exemples"
     else:
-        base += """
-Mode Enseignant :
-- Réponses détaillées
-- Niveau avancé
-"""
-
+        base += "\nMode Enseignant :\n- Réponses détaillées\n- Niveau avancé"
     return base
 
 # -----------------------
@@ -199,10 +205,8 @@ Mode Enseignant :
 
 def text_to_speech(text):
     tts = gTTS(text=text, lang='fr')
-
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     tts.save(temp_file.name)
-
     return temp_file.name
 
 # -----------------------
@@ -232,17 +236,11 @@ if audio is not None:
             model="whisper-large-v3"
         )
 
-        prompt = transcription.text.strip()
-
-        st.chat_message("user").markdown(prompt)
-
-        st.session_state.messages.append({
-            "role": "user",
-            "content": prompt
-        })
-
-    except:
-        st.warning("Erreur audio")
+        prompt_audio = transcription.text.strip()
+        st.chat_message("user").markdown(prompt_audio)
+        st.session_state.messages.append({"role": "user", "content": prompt_audio})
+    except Exception:
+        st.warning("Erreur lors de la transcription audio.")
 
 # -----------------------
 # TEXTE INPUT
@@ -251,25 +249,14 @@ if audio is not None:
 prompt = st.chat_input("Pose ta question...")
 
 if prompt:
-
     if not is_academic(prompt):
         response = "Je suis un assistant académique conçu pour répondre uniquement aux questions éducatives."
-
         st.chat_message("assistant").markdown(response)
-
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": response
-        })
-
+        st.session_state.messages.append({"role": "assistant", "content": response})
         st.stop()
 
     st.chat_message("user").markdown(prompt)
-
-    st.session_state.messages.append({
-        "role": "user",
-        "content": prompt
-    })
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
 # -----------------------
 # REPONSE IA
@@ -278,7 +265,6 @@ if prompt:
 if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
 
     with st.chat_message("assistant"):
-
         placeholder = st.empty()
         full_response = ""
 
@@ -290,12 +276,10 @@ if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] 
             st.session_state.has_greeted = True
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
         for msg in st.session_state.messages[-10:]:
             messages.append(msg)
 
         try:
-
             stream = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=messages,
