@@ -2,232 +2,238 @@ import streamlit as st
 from groq import Groq
 from gtts import gTTS
 import tempfile
-from supabase import create_client
-import bcrypt
+import logging
+from pathlib import Path
 
 # -----------------------
-# CONFIG & DESIGN WHATSAPP
+# CONFIG PAGE
 # -----------------------
-st.set_page_config(page_title="Assistant IA 🎓", layout="wide")
 
-# CSS pour le bouton style WhatsApp et supprimer le rouge agressif
+st.set_page_config(
+    page_title="Assistant Académique IA 🎓",
+    page_icon="🎓",
+    layout="wide"
+)
+
+# -----------------------
+# DESIGN PRO & WHATSAPP BUTTON
+# -----------------------
+
 st.markdown("""
-    <style>
-    /* Bouton d'envoi style WhatsApp */
-    button[kind="primary"] {
-        background-color: #25D366 !important;
-        color: white !important;
-        border-radius: 50% !important;
-        width: 45px !important;
-        height: 45px !important;
-        border: none !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12) !important;
-    }
-    
-    /* Masquer le contour rouge des erreurs pour un look plus propre */
-    .stException, .stAlert {
-        border: none !important;
-        background-color: #f0f2f5 !important;
-        color: #1f1f1f !important;
-    }
-    
-    /* Input arrondi */
-    .stChatInput textarea {
-        border-radius: 25px !important;
-        padding-left: 20px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+<style>
+.stApp {
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color: white;
+}
+
+h1 {
+    color: #FFD700;
+    text-align: center;
+}
+
+/* Style de l'input texte */
+.stChatInput input {
+    border-radius: 25px;
+    border: 2px solid #FFD700;
+    padding: 12px;
+    background-color: #1e2a38;
+    color: white;
+}
+
+/* --- BOUTON ENVOI STYLE WHATSAPP --- */
+button[kind="primary"] {
+    background-color: #25D366 !important; /* Vert WhatsApp */
+    color: white !important;
+    border-radius: 50% !important; /* Forme ronde */
+    width: 45px !important;
+    height: 45px !important;
+    border: none !important;
+    margin-left: 10px !important;
+}
+
+/* Suppression des bordures rouges d'erreur */
+.stException, .stAlert {
+    border: none !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
 
 # -----------------------
-# SUPABASE
+# LOGS
 # -----------------------
 
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+Path("logs").mkdir(exist_ok=True)
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("logs/app.log"),
+        logging.StreamHandler()
+    ]
+)
+
+# -----------------------
+# GROQ CLIENT
+# -----------------------
+
+@st.cache_resource
+def init_client():
+    try:
+        return Groq(api_key=st.secrets["GROQ_API_KEY"])
+    except:
+        st.error("Ajoutez GROQ_API_KEY dans Settings > Secrets")
+        st.stop()
+
+client = init_client()
 
 # -----------------------
 # SESSION
 # -----------------------
 
-if "user" not in st.session_state:
-    st.session_state.user = None
-
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if "loaded_history" not in st.session_state:
-    st.session_state.loaded_history = False
+if "mode" not in st.session_state:
+    st.session_state.mode = "Étudiant"
 
-# -----------------------
-# PASSWORD
-# -----------------------
-
-def hash_password(password):
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-def check_password(password, hashed):
-    return bcrypt.checkpw(password.encode(), hashed.encode())
-
-# -----------------------
-# AUTH
-# -----------------------
-
-def register(username, password):
-    existing = supabase.table("utilisateurs").select("*").eq("username", username).execute()
-
-    if existing.data:
-        st.error("Utilisateur existe déjà")
-        return
-
-    hashed = hash_password(password)
-
-    supabase.table("utilisateurs").insert({
-        "username": username,
-        "password": hashed
-    }).execute()
-
-    st.success("Compte créé")
-
-def login(username, password):
-    data = supabase.table("utilisateurs").select("*").eq("username", username).execute()
-
-    if not data.data:
-        return False
-
-    user = data.data[0]
-
-    return check_password(password, user["password"])
-
-# -----------------------
-# MESSAGES DB
-# -----------------------
-
-def save_message(username, role, content):
-    supabase.table("messages").insert({
-        "username": username,
-        "role": role,
-        "content": content
-    }).execute()
-
-def load_messages(username):
-    data = supabase.table("messages") \
-        .select("*") \
-        .eq("username", username) \
-        .order("created_at") \
-        .execute()
-
-    return data.data if data.data else []
-
-# -----------------------
-# LOGIN UI
-# -----------------------
-
-if not st.session_state.user:
-
-    st.title("🔐 Authentification")
-
-    tab1, tab2 = st.tabs(["Connexion", "Créer compte"])
-
-    with tab1:
-        u = st.text_input("Nom")
-        p = st.text_input("Mot de passe", type="password")
-
-        if st.button("Se connecter"):
-            if login(u, p):
-                st.session_state.user = u
-                st.success("Connecté")
-                st.rerun()
-            else:
-                st.error("Erreur")
-
-    with tab2:
-        u2 = st.text_input("Nouveau nom")
-        p2 = st.text_input("Mot de passe", type="password")
-
-        if st.button("Créer compte"):
-            register(u2, p2)
-
-    st.stop()
+if "has_greeted" not in st.session_state:
+    st.session_state.has_greeted = False
 
 # -----------------------
 # SIDEBAR
 # -----------------------
 
-st.sidebar.write(f"👤 {st.session_state.user}")
+st.sidebar.title("⚙️ Paramètres")
 
-if st.sidebar.button("Déconnexion"):
-    st.session_state.user = None
-    st.session_state.messages = []
-    st.session_state.loaded_history = False
-    st.rerun()
+mode = st.sidebar.selectbox(
+    "Mode",
+    ["Étudiant", "Enseignant"]
+)
 
-if st.sidebar.button("🗑️ Effacer historique"):
-    supabase.table("messages").delete().eq("username", st.session_state.user).execute()
-    st.session_state.messages = []
-    st.rerun()
-
-mode = st.sidebar.selectbox("Mode", ["Étudiant", "Enseignant"])
+st.session_state.mode = mode
 
 # -----------------------
-# IA
+# FILTRE ACADEMIQUE
 # -----------------------
 
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+def is_academic(question):
+    mots_interdits = [
+        "football","match","musique","chanson",
+        "film","serie","amour","copine","copain",
+        "jeu","divertissement","buzz"
+    ]
 
-def get_prompt():
-    base = "Assistant académique. Réponds uniquement aux questions éducatives."
+    question = question.lower()
+
+    for mot in mots_interdits:
+        if mot in question:
+            return False
+    return True
+
+# -----------------------
+# PROMPT IA
+# -----------------------
+
+def get_system_prompt(mode):
+
+    base = """
+Tu es un assistant académique professionnel.
+
+Règles STRICTES :
+- Réponds uniquement aux questions éducatives
+- Refuse les sujets hors contexte
+- Ne salue qu'une seule fois
+- Réponds de manière claire et naturelle
+"""
 
     if mode == "Étudiant":
-        base += " Explique simplement."
+        base += """
+Mode Étudiant :
+- Explications simples
+- Exemples
+"""
     else:
-        base += " Réponse détaillée."
+        base += """
+Mode Enseignant :
+- Réponses détaillées
+- Niveau avancé
+"""
 
     return base
 
 # -----------------------
-# VOIX
+# TEXT TO SPEECH
 # -----------------------
 
-def tts(text):
-    t = gTTS(text=text, lang="fr")
-    f = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    t.save(f.name)
-    return f.name
+def text_to_speech(text):
+    tts = gTTS(text=text, lang='fr')
+
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    tts.save(temp_file.name)
+
+    return temp_file.name
 
 # -----------------------
-# CHARGER HISTORIQUE
+# HEADER
 # -----------------------
 
-if not st.session_state.loaded_history:
-    history = load_messages(st.session_state.user)
-
-    st.session_state.messages = [
-        {"role": m["role"], "content": m["content"]}
-        for m in history
-    ]
-
-    st.session_state.loaded_history = True
+st.markdown("# 🎓 Assistant Académique IA")
 
 # -----------------------
-# UI CHAT
+# HISTORIQUE
 # -----------------------
-
-st.title("🎓 Assistant IA")
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # -----------------------
-# INPUT (WHATSAPP STYLE)
+# AUDIO INPUT
+# -----------------------
+
+audio = st.audio_input("🎤 Parlez")
+
+if audio is not None:
+    try:
+        transcription = client.audio.transcriptions.create(
+            file=("audio.wav", audio.getvalue()),
+            model="whisper-large-v3"
+        )
+
+        prompt = transcription.text.strip()
+
+        st.chat_message("user").markdown(prompt)
+
+        st.session_state.messages.append({
+            "role": "user",
+            "content": prompt
+        })
+
+    except:
+        st.warning("Erreur audio")
+
+# -----------------------
+# TEXTE INPUT
 # -----------------------
 
 prompt = st.chat_input("Pose ta question...")
 
 if prompt:
+
+    if not is_academic(prompt):
+        response = "Je suis un assistant académique conçu pour répondre uniquement aux questions éducatives."
+
+        st.chat_message("assistant").markdown(response)
+
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": response
+        })
+
+        st.stop()
 
     st.chat_message("user").markdown(prompt)
 
@@ -236,43 +242,59 @@ if prompt:
         "content": prompt
     })
 
-    save_message(st.session_state.user, "user", prompt)
-
 # -----------------------
 # REPONSE IA
 # -----------------------
 
-if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
 
     with st.chat_message("assistant"):
 
-        full = ""
         placeholder = st.empty()
+        full_response = ""
 
-        messages = [{"role": "system", "content": get_prompt()}]
+        SYSTEM_PROMPT = get_system_prompt(st.session_state.mode)
 
-        for m in st.session_state.messages[-10:]:
-            messages.append(m)
+        if st.session_state.has_greeted:
+            SYSTEM_PROMPT += "\nNe commence pas par une salutation."
+        else:
+            st.session_state.has_greeted = True
 
-        stream = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            stream=True
-        )
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-        for chunk in stream:
-            if chunk.choices[0].delta.content:
-                full += chunk.choices[0].delta.content
-                placeholder.markdown(full + "▌")
+        for msg in st.session_state.messages[-10:]:
+            messages.append(msg)
 
-        placeholder.markdown(full)
+        try:
 
-        audio = tts(full)
-        st.audio(audio)
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=messages,
+                stream=True
+            )
+
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    full_response += chunk.choices[0].delta.content
+                    placeholder.markdown(full_response + "▌")
+
+            placeholder.markdown(full_response)
+
+            # 🔊 AUDIO RESPONSE
+            audio_file = text_to_speech(full_response)
+            st.audio(audio_file, format="audio/mp3")
+
+        except Exception as e:
+            st.error(f"Erreur IA : {e}")
 
     st.session_state.messages.append({
         "role": "assistant",
-        "content": full
+        "content": full_response
     })
 
-    save_message(st.session_state.user, "assistant", full)
+# -----------------------
+# FOOTER
+# -----------------------
+
+st.markdown("---")
+st.markdown("Développé par **Julien Banze Kandolo** 🚀")
