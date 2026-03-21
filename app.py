@@ -16,12 +16,12 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN PRO (MODIFIÉ)
+# DESIGN PRO & PERSONNALISATION
 # -----------------------
 
 st.markdown("""
 <style>
-/* Fond de l'application */
+/* Fond général */
 .stApp {
     background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
     color: white;
@@ -32,29 +32,26 @@ h1 {
     text-align: center;
 }
 
-/* --- STYLE WHATSAPP POUR LE CHAT INPUT --- */
-
-/* 1. On retire TOUTES les bordures rouges et contours par défaut */
+/* --- STYLE WHATSAPP & CHAT INPUT --- */
 div[data-testid="stChatInput"] {
     border: none !important;
 }
 
 div[data-testid="stChatInput"] > div {
-    border: 2px solid #25D366 !important; /* Contour Vert uniquement */
+    border: 2px solid #25D366 !important; /* Bordure verte uniquement */
     border-radius: 25px !important;
     background-color: #1e2a38 !important;
 }
 
-/* Suppression du halo rouge au clic (focus) */
 div[data-testid="stChatInput"] textarea {
     box-shadow: none !important;
     border: none !important;
     color: white !important;
 }
 
-/* 2. Transformation du bouton d'envoi en bouton WhatsApp */
+/* Bouton d'envoi style WhatsApp */
 div[data-testid="stChatInput"] button {
-    background-color: #25D366 !important; /* Vert WhatsApp */
+    background-color: #25D366 !important;
     border-radius: 50% !important;
     border: none !important;
     right: 10px !important;
@@ -63,18 +60,26 @@ div[data-testid="stChatInput"] button {
     width: 40px !important;
 }
 
-/* On change l'icône flèche (SVG) pour qu'elle soit blanche */
 div[data-testid="stChatInput"] button svg {
     color: white !important;
     fill: white !important;
 }
 
-/* Effet au survol du bouton */
-div[data-testid="stChatInput"] button:hover {
-    background-color: #128C7E !important; /* Vert plus foncé */
-    transform: scale(1.05);
+/* Style lien bibliothèque */
+.biblio-link {
+    display: block;
+    text-align: center;
+    padding: 10px;
+    background-color: #004a99;
+    color: white !important;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: bold;
+    margin-top: 10px;
 }
-
+.biblio-link:hover {
+    background-color: #0056b3;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -83,7 +88,6 @@ div[data-testid="stChatInput"] button:hover {
 # -----------------------
 
 Path("logs").mkdir(exist_ok=True)
-
 logging.basicConfig(
     level=logging.INFO,
     handlers=[
@@ -112,206 +116,125 @@ client = init_client()
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
 if "mode" not in st.session_state:
     st.session_state.mode = "Étudiant"
-
 if "has_greeted" not in st.session_state:
     st.session_state.has_greeted = False
 
 # -----------------------
-# SIDEBAR
+# SIDEBAR (LOGO & BIBLIOTHÈQUE)
 # -----------------------
 
+# Ajout du logo UPL
+st.sidebar.image("logo_upl.png", use_container_width=True) # Assure-toi que le fichier s'appelle logo_upl.png
+
+# Lien bibliothèque
+st.sidebar.markdown('<a href="https://bibliotheque.upl-univ.ac/" target="_blank" class="biblio-link">📚 Bibliothèque UPL</a>', unsafe_allow_html=True)
+
+st.sidebar.divider()
 st.sidebar.title("⚙️ Paramètres")
-
-mode = st.sidebar.selectbox(
-    "Mode",
-    ["Étudiant", "Enseignant"]
-)
-
+mode = st.sidebar.selectbox("Mode", ["Étudiant", "Enseignant"])
 st.session_state.mode = mode
 
 # -----------------------
-# FILTRE ACADEMIQUE
+# FONCTIONS LOGIQUE (FILTRE, PROMPT, TTS)
 # -----------------------
 
 def is_academic(question):
-    mots_interdits = [
-        "football","match","musique","chanson",
-        "film","serie","amour","copine","copain",
-        "jeu","divertissement","buzz"
-    ]
-
+    mots_interdits = ["football","match","musique","chanson","film","serie","amour","copine","copain","jeu","divertissement","buzz"]
     question = question.lower()
-
     for mot in mots_interdits:
-        if mot in question:
-            return False
+        if mot in question: return False
     return True
 
-# -----------------------
-# PROMPT IA
-# -----------------------
-
 def get_system_prompt(mode):
-
-    base = """
-Tu es un assistant académique professionnel.
-
-Règles STRICTES :
-- Réponds uniquement aux questions éducatives
-- Refuse les sujets hors contexte
-- Ne salue qu'une seule fois
-- Réponds de manière claire et naturelle
-"""
-
-    if mode == "Étudiant":
-        base += """
-Mode Étudiant :
-- Explications simples
-- Exemples
-"""
-    else:
-        base += """
-Mode Enseignant :
-- Réponses détaillées
-- Niveau avancé
-"""
-
+    base = "Tu es un assistant académique professionnel. Règle : Réponds uniquement aux questions éducatives."
+    if mode == "Étudiant": base += "\nMode Étudiant : Explications simples et exemples."
+    else: base += "\nMode Enseignant : Détails poussés et niveau avancé."
     return base
-
-# -----------------------
-# TEXT TO SPEECH
-# -----------------------
 
 def text_to_speech(text):
     tts = gTTS(text=text, lang='fr')
-
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
     tts.save(temp_file.name)
-
     return temp_file.name
 
 # -----------------------
-# HEADER
+# INTERFACE PRINCIPALE
 # -----------------------
 
 st.markdown("# 🎓 Assistant Académique IA")
 
-# -----------------------
-# HISTORIQUE
-# -----------------------
-
+# Historique
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# -----------------------
-# AUDIO INPUT
-# -----------------------
-
+# Entrée Audio
 audio = st.audio_input("🎤 Parlez")
-
 if audio is not None:
     try:
         transcription = client.audio.transcriptions.create(
             file=("audio.wav", audio.getvalue()),
             model="whisper-large-v3"
         )
-
-        prompt = transcription.text.strip()
-
-        st.chat_message("user").markdown(prompt)
-
-        st.session_state.messages.append({
-            "role": "user",
-            "content": prompt
-        })
-
+        prompt_audio = transcription.text.strip()
+        st.chat_message("user").markdown(prompt_audio)
+        st.session_state.messages.append({"role": "user", "content": prompt_audio})
     except:
         st.warning("Erreur audio")
 
-# -----------------------
-# TEXTE INPUT
-# -----------------------
-
+# Entrée Texte (CHAT INPUT)
 prompt = st.chat_input("Pose ta question...")
 
 if prompt:
-
     if not is_academic(prompt):
-        response = "Je suis un assistant académique conçu pour répondre uniquement aux questions éducatives."
-
-        st.chat_message("assistant").markdown(response)
-
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": response
-        })
-
+        resp = "Je suis un assistant académique conçu pour les questions éducatives uniquement."
+        st.chat_message("assistant").markdown(resp)
+        st.session_state.messages.append({"role": "assistant", "content": resp})
         st.stop()
-
+    
     st.chat_message("user").markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-    st.session_state.messages.append({
-        "role": "user",
-        "content": prompt
-    })
-
-# -----------------------
-# REPONSE IA
-# -----------------------
-
+# Réponse IA
 if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
-
     with st.chat_message("assistant"):
-
         placeholder = st.empty()
         full_response = ""
-
+        
         SYSTEM_PROMPT = get_system_prompt(st.session_state.mode)
-
         if st.session_state.has_greeted:
             SYSTEM_PROMPT += "\nNe commence pas par une salutation."
         else:
             st.session_state.has_greeted = True
 
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
         for msg in st.session_state.messages[-10:]:
             messages.append(msg)
 
         try:
-
             stream = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=messages,
                 stream=True
             )
-
             for chunk in stream:
                 if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
                     placeholder.markdown(full_response + "▌")
-
             placeholder.markdown(full_response)
-
-            # 🔊 AUDIO RESPONSE
+            
+            # Audio
             audio_file = text_to_speech(full_response)
             st.audio(audio_file, format="audio/mp3")
-
         except Exception as e:
             st.error(f"Erreur IA : {e}")
 
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": full_response
-    })
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
 
 # -----------------------
 # FOOTER
 # -----------------------
-
 st.markdown("---")
 st.markdown("Développé par **Julien Banze Kandolo** 🚀")
