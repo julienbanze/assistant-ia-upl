@@ -16,11 +16,12 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN PRO & WHATSAPP BUTTON
+# DESIGN PRO (MODIFIÉ)
 # -----------------------
 
 st.markdown("""
 <style>
+/* Fond de l'application */
 .stApp {
     background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
     color: white;
@@ -31,31 +32,47 @@ h1 {
     text-align: center;
 }
 
-/* Style de l'input texte */
-.stChatInput input {
-    border-radius: 25px;
-    border: 2px solid #FFD700;
-    padding: 12px;
-    background-color: #1e2a38;
-    color: white;
+/* --- STYLE WHATSAPP POUR LE CHAT INPUT --- */
+
+/* 1. On retire TOUTES les bordures rouges et contours par défaut */
+div[data-testid="stChatInput"] {
+    border: none !important;
 }
 
-/* --- BOUTON ENVOI STYLE WHATSAPP --- */
-button[kind="primary"] {
+div[data-testid="stChatInput"] > div {
+    border: 2px solid #25D366 !important; /* Contour Vert uniquement */
+    border-radius: 25px !important;
+    background-color: #1e2a38 !important;
+}
+
+/* Suppression du halo rouge au clic (focus) */
+div[data-testid="stChatInput"] textarea {
+    box-shadow: none !important;
+    border: none !important;
+    color: white !important;
+}
+
+/* 2. Transformation du bouton d'envoi en bouton WhatsApp */
+div[data-testid="stChatInput"] button {
     background-color: #25D366 !important; /* Vert WhatsApp */
-    color: white !important;
-    border-radius: 50% !important; /* Forme ronde */
-    width: 45px !important;
-    height: 45px !important;
+    border-radius: 50% !important;
     border: none !important;
-    margin-left: 10px !important;
+    right: 10px !important;
+    bottom: 4px !important;
+    height: 40px !important;
+    width: 40px !important;
 }
 
-/* Suppression des bordures rouges d'erreur */
-.stException, .stAlert {
-    border: none !important;
-    background-color: rgba(255, 255, 255, 0.1) !important;
+/* On change l'icône flèche (SVG) pour qu'elle soit blanche */
+div[data-testid="stChatInput"] button svg {
     color: white !important;
+    fill: white !important;
+}
+
+/* Effet au survol du bouton */
+div[data-testid="stChatInput"] button:hover {
+    background-color: #128C7E !important; /* Vert plus foncé */
+    transform: scale(1.05);
 }
 
 </style>
