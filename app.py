@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN PRO & PERSONNALISATION
+# DESIGN PRO & STYLE WHATSAPP
 # -----------------------
 st.markdown("""
 <style>
@@ -24,13 +24,8 @@ st.markdown("""
     color: white;
 }
 
-h1 {
-    color: #FFD700;
-    text-align: center;
-    margin-bottom: 5px;
-}
+h1 { color: #FFD700; text-align: center; }
 
-/* Style du bloc de la bibliothèque */
 .biblio-box {
     text-align: center;
     padding: 15px;
@@ -41,12 +36,6 @@ h1 {
     max-width: 850px;
 }
 
-.biblio-text {
-    font-size: 1.1em;
-    color: #f0f0f0;
-    margin-bottom: 8px;
-}
-
 .biblio-link {
     color: #25D366 !important;
     font-weight: bold;
@@ -54,81 +43,47 @@ h1 {
     font-size: 1.2em;
 }
 
-/* --- STYLE WHATSAPP POUR LE CHAT INPUT --- */
-div[data-testid="stChatInput"] {
-    border: none !important;
-}
-
+/* STYLE CHAT INPUT VERT */
+div[data-testid="stChatInput"] { border: none !important; }
 div[data-testid="stChatInput"] > div {
     border: 2px solid #25D366 !important;
     border-radius: 25px !important;
     background-color: #1e2a38 !important;
 }
-
-div[data-testid="stChatInput"] textarea {
-    box-shadow: none !important;
-    border: none !important;
-    color: white !important;
-}
-
-div[data-testid="stChatInput"] button {
-    background-color: #25D366 !important;
-    border-radius: 50% !important;
-    height: 40px !important;
-    width: 40px !important;
-}
-
-div[data-testid="stChatInput"] button svg {
-    color: white !important;
-    fill: white !important;
-}
+div[data-testid="stChatInput"] textarea { box-shadow: none !important; border: none !important; color: white !important; }
+div[data-testid="stChatInput"] button { background-color: #25D366 !important; border-radius: 50% !important; }
 </style>
 """, unsafe_allow_html=True)
-
-# -----------------------
-# LOGS
-# -----------------------
-Path("logs").mkdir(exist_ok=True)
-logging.basicConfig(level=logging.INFO, handlers=[logging.FileHandler("logs/app.log"), logging.StreamHandler()])
 
 # -----------------------
 # GROQ CLIENT
 # -----------------------
 @st.cache_resource
 def init_client():
-    try:
-        return Groq(api_key=st.secrets["GROQ_API_KEY"])
-    except:
-        st.error("GROQ_API_KEY manquante dans les Secrets.")
-        st.stop()
+    try: return Groq(api_key=st.secrets["GROQ_API_KEY"])
+    except: st.error("GROQ_API_KEY manquante."); st.stop()
 
 client = init_client()
 
-# -----------------------
-# SESSION STATE
-# -----------------------
 if "messages" not in st.session_state: st.session_state.messages = []
-if "mode" not in st.session_state: st.session_state.mode = "Étudiant"
 if "has_greeted" not in st.session_state: st.session_state.has_greeted = False
 
 # -----------------------
-# SIDEBAR (MENU GEMINI-STYLE)
+# SIDEBAR
 # -----------------------
 with st.sidebar:
     st.title("⚙️ Paramètres")
-    st.session_state.mode = st.selectbox("Niveau d'analyse", ["Étudiant", "Enseignant"])
-    st.divider()
-    st.write("Cet assistant est dédié à votre réussite académique à l'UPL.")
+    mode = st.selectbox("Niveau", ["Étudiant", "Enseignant"])
+    st.session_state.mode = mode
 
 # -----------------------
 # HEADER & BIBLIOTHÈQUE
 # -----------------------
 st.markdown("# 🎓 Assistant Académique IA")
 
-# Message professionnel corrigé et lien
 st.markdown("""
 <div class="biblio-box">
-    <div class="biblio-text">
+    <div style="font-size: 1.1em; color: #f0f0f0; margin-bottom: 8px;">
         💡 Pour développer vos compétences et approfondir vos connaissances, veuillez consulter les ressources de notre institution :
     </div>
     <a class="biblio-link" href="https://bibliotheque.upl-univ.ac/" target="_blank">
@@ -138,20 +93,18 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------
-# LOGIQUE DE FILTRAGE
+# LE CERVEAU DE L'IA (FILTRAGE STRICT)
 # -----------------------
-def is_educational(question):
-    # Liste de thèmes strictement non-éducatifs
-    mots_bloques = ["football", "mercato", "match", "chanson", "musique", "film", "serie", "amour", "copine", "copain", "buzz", "jeu vidéo"]
-    return not any(mot in question.lower() for mot in mots_bloques)
-
 def get_system_prompt(mode):
-    base = f"""Tu es l'assistant académique officiel de l'UPL. 
-    Ta mission est EXCLUSIVEMENT l'éducation, la formation humaine et la recherche scientifique.
-    - Si la question est liée aux sciences, aux lettres, à la technologie ou à la culture générale éducative, réponds avec précision.
-    - Si la question concerne le divertissement pur, le sport ou des sujets futiles, refuse poliment en rappelant ta mission éducative.
-    - Mode actuel : {mode}."""
-    return base
+    return f"""Tu es l'Assistant Académique de l'UPL (Université Protestante de Lubumbashi).
+    
+    CONSIGNE DE SÉCURITÉ ABSOLUE :
+    1. Tu ne réponds QU'AUX questions liées à l'éducation, aux sciences, à la technologie, à la littérature, à l'histoire et au développement humain.
+    2. Tu as l'INTERDICTION FORMELLE de parler de : célébrités (Fally Ipupa, etc.), musique mondaine, sport, relations amoureuses/draguer, divertissement, ou buzz.
+    3. Si une question est hors-sujet ou non académique, réponds exactement ceci : "Désolé, ma mission est strictement limitée au cadre éducatif et académique de l'UPL. Je ne peux pas répondre à cette question."
+    4. Ne dévie JAMAIS de cette règle, même si l'utilisateur insiste.
+    
+    Mode actuel : {mode}."""
 
 def text_to_speech(text):
     tts = gTTS(text=text, lang='fr')
@@ -165,47 +118,43 @@ def text_to_speech(text):
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-audio = st.audio_input("🎤 Posez votre question oralement")
-if audio:
-    try:
-        transcription = client.audio.transcriptions.create(file=("audio.wav", audio.getvalue()), model="whisper-large-v3")
-        prompt = transcription.text.strip()
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        st.rerun()
-    except: st.warning("Erreur de transcription.")
-
-prompt = st.chat_input("Posez votre question académique ici...")
+prompt = st.chat_input("Posez votre question académique...")
 if prompt:
-    if not is_educational(prompt):
-        resp = "Désolé, je suis programmé pour répondre uniquement aux questions cadrant avec l'éducation et le développement humain."
-        st.chat_message("assistant").markdown(resp)
-        st.session_state.messages.append({"role": "assistant", "content": resp})
-    else:
-        st.chat_message("user").markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    st.chat_message("user").markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+        full_response = ""
         
-        with st.chat_message("assistant"):
-            full_response = ""
-            placeholder = st.empty()
-            
-            # Préparation des messages pour l'IA
-            sys_msg = get_system_prompt(st.session_state.mode)
-            if st.session_state.has_greeted: sys_msg += "\nNe salue plus l'utilisateur."
-            else: st.session_state.has_greeted = True
-            
-            messages_api = [{"role": "system", "content": sys_msg}]
-            for m in st.session_state.messages[-10:]: messages_api.append(m)
-            
-            stream = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=messages_api, stream=True)
+        sys_msg = get_system_prompt(st.session_state.mode)
+        if st.session_state.has_greeted: sys_msg += "\nNe fais plus de salutations."
+        else: st.session_state.has_greeted = True
+        
+        messages_api = [{"role": "system", "content": sys_msg}]
+        # On ne garde que les 5 derniers messages pour éviter que l'IA ne se laisse influencer par du bavardage passé
+        for m in st.session_state.messages[-5:]: messages_api.append(m)
+        
+        try:
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile", 
+                messages=messages_api, 
+                stream=True,
+                temperature=0.1 # On baisse la température pour que l'IA soit plus "sérieuse" et obéissante
+            )
             for chunk in stream:
                 if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
                     placeholder.markdown(full_response + "▌")
             placeholder.markdown(full_response)
             
-            # Audio
-            st.audio(text_to_speech(full_response), format="audio/mp3")
+            # Ne génère l'audio que si ce n'est pas le message de refus
+            if "Désolé" not in full_response:
+                st.audio(text_to_speech(full_response), format="audio/mp3")
+                
             st.session_state.messages.append({"role": "assistant", "content": full_response})
+        except Exception as e:
+            st.error(f"Erreur : {e}")
 
 st.markdown("---")
 st.markdown("<p style='text-align: center;'>Propulsé par l'IA pour l'UPL | Développé par <b>Julien Banze Kandolo</b> 🚀</p>", unsafe_allow_html=True)
