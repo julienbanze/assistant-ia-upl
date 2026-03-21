@@ -16,11 +16,12 @@ st.set_page_config(
 )
 
 # -----------------------
-# DESIGN PRO
+# DESIGN PRO (MODIFIÉ)
 # -----------------------
 
 st.markdown("""
 <style>
+/* Fond de l'application */
 .stApp {
     background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
     color: white;
@@ -31,12 +32,48 @@ h1 {
     text-align: center;
 }
 
-.stChatInput input {
-    border-radius: 25px;
-    border: 2px solid #FFD700;
-    padding: 12px;
-    background-color: #1e2a38;
-    color: white;
+/* --- MODIFICATIONS CHAMPS DE SAISIE --- */
+
+/* Suppression du contour rouge et styling du champ */
+div[data-testid="stChatInput"] {
+    border: none !important;
+}
+
+div[data-testid="stChatInput"] textarea {
+    background-color: #1e2a38 !important;
+    color: white !important;
+    border-radius: 25px !important;
+    border: 1px solid #3d4b5c !important; /* Bordure discrète */
+}
+
+/* Suppression de l'effet rouge au clic/focus */
+div[data-testid="stChatInput"] textarea:focus {
+    box-shadow: none !important;
+    border: 1px solid #25D366 !important; /* Bordure verte WhatsApp au focus */
+}
+
+/* --- BOUTON ENVOI STYLE WHATSAPP --- */
+div[data-testid="stChatInput"] button {
+    background-color: #25D366 !important; /* Vert WhatsApp */
+    border-radius: 50% !important;
+    right: 10px !important;
+    bottom: 5px !important;
+    width: 40px !important;
+    height: 40px !important;
+}
+
+/* Remplacement de l'icône par un avion en papier */
+div[data-testid="stChatInput"] button svg {
+    display: none !important; /* Cache l'icône originale */
+}
+
+div[data-testid="stChatInput"] button::after {
+    content: "➤" !important; /* Symbole avion */
+    color: white !important;
+    font-size: 20px !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
 }
 </style>
 """, unsafe_allow_html=True)
