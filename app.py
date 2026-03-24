@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # -----------------------
-# STYLE PRO WHATSAPP
+# STYLE PRO WHATSAPP + BOUTON MICRO MODERNE
 # -----------------------
 st.markdown("""
 <style>
@@ -66,15 +66,23 @@ div[data-testid="stChatInput"] button {
 }
 
 .mic-button {
-    background-color: #25D366;
+    background: linear-gradient(135deg, #00C853, #25D366);
     border-radius: 50%;
-    width: 45px;
-    height: 45px;
+    width: 50px;
+    height: 50px;
     display: flex;
     justify-content: center;
     align-items: center;
     color: white;
-    font-size: 20px;
+    font-size: 24px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.mic-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -145,24 +153,20 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
 # -----------------------
-# 🎤 MICRO DANS LA BARRE (WhatsApp style)
+# 🎤 MICRO DANS LA BARRE + VOIX → TEXTE → IA
 # -----------------------
 st.markdown('<div class="voice-bar">', unsafe_allow_html=True)
 col1, col2 = st.columns([8,1])
 
 with col2:
     audio = mic_recorder(
-        start_prompt="🎙️",
-        stop_prompt="⏹️",
+        start_prompt="",
+        stop_prompt="",
         just_once=True,
         use_container_width=True
     )
-
 st.markdown('</div>', unsafe_allow_html=True)
 
-# -----------------------
-# CONVERSION VOIX ➜ TEXTE + ENVOI AUTOMATIQUE À L'IA
-# -----------------------
 if audio:
     with open("voice.wav", "wb") as f:
         f.write(audio["bytes"])
@@ -173,7 +177,8 @@ if audio:
         )
         voice_text = transcription.text
 
-        st.chat_message("user").markdown(voice_text)
+        # Répéter la question en français
+        st.chat_message("user").markdown(f"Vous avez dit : *{voice_text}*")
         st.session_state.messages.append({"role":"user","content":voice_text})
 
         # Envoi automatique à l'IA
