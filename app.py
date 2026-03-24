@@ -2,8 +2,8 @@ import streamlit as st
 from groq import Groq
 from gtts import gTTS
 import tempfile
+import logging
 from pathlib import Path
-from streamlit_mic_recorder import mic_recorder
 
 # -----------------------
 # CONFIG PAGE
@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # -----------------------
-# STYLE PRO WHATSAPP + BOUTON MICRO
+# DESIGN PRO & STYLE WHATSAPP
 # -----------------------
 st.markdown("""
 <style>
@@ -43,51 +43,15 @@ h1 { color: #FFD700; text-align: center; }
     font-size: 1.2em;
 }
 
-/* CHAT INPUT */
+/* STYLE CHAT INPUT VERT */
 div[data-testid="stChatInput"] { border: none !important; }
 div[data-testid="stChatInput"] > div {
     border: 2px solid #25D366 !important;
     border-radius: 25px !important;
     background-color: #1e2a38 !important;
 }
-div[data-testid="stChatInput"] textarea { 
-    box-shadow: none !important; border: none !important; color: white !important; 
-}
-div[data-testid="stChatInput"] button { 
-    background-color: #25D366 !important; border-radius: 50% !important; 
-}
-
-/* VOICE BUTTON */
-.voice-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: -10px;
-}
-
-/* Bouton micro pro */
-.mic-button {
-    background-color: #25D366;
-    border: none;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    font-size: 24px;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
-    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
-}
-.mic-button:hover {
-    transform: scale(1.1);
-    box-shadow: 0 5px 12px rgba(0,0,0,0.4);
-}
-
-/* SVG micro */
-.mic-icon { width: 24px; height: 24px; }
+div[data-testid="stChatInput"] textarea { box-shadow: none !important; border: none !important; color: white !important; }
+div[data-testid="stChatInput"] button { background-color: #25D366 !important; border-radius: 50% !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -96,11 +60,8 @@ div[data-testid="stChatInput"] button {
 # -----------------------
 @st.cache_resource
 def init_client():
-    try: 
-        return Groq(api_key=st.secrets["GROQ_API_KEY"])
-    except: 
-        st.error("GROQ_API_KEY manquante.")
-        st.stop()
+    try: return Groq(api_key=st.secrets["GROQ_API_KEY"])
+    except: st.error("GROQ_API_KEY manquante."); st.stop()
 
 client = init_client()
 
@@ -119,6 +80,7 @@ with st.sidebar:
 # HEADER & BIBLIOTHÈQUE
 # -----------------------
 st.markdown("# 🎓 Assistant Académique IA")
+
 st.markdown("""
 <div class="biblio-box">
     <div style="font-size: 1.1em; color: #f0f0f0; margin-bottom: 8px;">
@@ -131,15 +93,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------
-# SYSTEM PROMPT
+# LE CERVEAU DE L'IA (FILTRAGE STRICT)
 # -----------------------
 def get_system_prompt(mode):
     return f"""Tu es l'Assistant Académique de l'UPL (Université Protestante de Lubumbashi).
     
     CONSIGNE DE SÉCURITÉ ABSOLUE :
     1. Tu ne réponds QU'AUX questions liées à l'éducation, aux sciences, à la technologie, à la littérature, à l'histoire et au développement humain.
-    2. Tu as l'INTERDICTION FORMELLE de parler de : célébrités, musique mondaine, sport, relations amoureuses/draguer, divertissement ou buzz.
-    3. Si une question est hors-sujet ou non académique, réponds : "Désolé, ma mission est strictement limitée au cadre éducatif et académique de l'UPL."
+    2. Tu as l'INTERDICTION FORMELLE de parler de : célébrités (Fally Ipupa, etc.), musique mondaine, sport, relations amoureuses/draguer, divertissement, ou buzz.
+    3. Si une question est hors-sujet ou non académique, réponds exactement ceci : "Désolé, ma mission est strictement limitée au cadre éducatif et académique de l'UPL. Je ne peux pas répondre à cette question."
+    4. Ne dévie JAMAIS de cette règle, même si l'utilisateur insiste.
     
     Mode actuel : {mode}."""
 
@@ -150,112 +113,42 @@ def text_to_speech(text):
     return temp.name
 
 # -----------------------
-# CHAT EXISTANT
+# CHAT INTERFACE
 # -----------------------
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
-# -----------------------
-# MICRO DANS LA BARRE + VOIX → TEXTE → IA
-# -----------------------
-st.markdown('<div class="voice-bar">', unsafe_allow_html=True)
-col1, col2 = st.columns([8,1])
-
-with col2:
-    audio = mic_recorder(
-        start_prompt="""
-        <div class="mic-button">
-            <svg class="mic-icon" xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24">
-                <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/>
-                <path d="M19 11v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 18 0v-2h-2z"/>
-                <path d="M12 17v4"/>
-                <path d="M8 21h8"/>
-            </svg>
-        </div>
-        """,
-        stop_prompt="",
-        just_once=True,
-        use_container_width=True
-    )
-st.markdown('</div>', unsafe_allow_html=True)
-
-if audio:
-    with open("voice.wav", "wb") as f:
-        f.write(audio["bytes"])
-    try:
-        transcription = client.audio.transcriptions.create(
-            file=open("voice.wav", "rb"),
-            model="whisper-large-v3"
-        )
-        voice_text = transcription.text
-
-        st.chat_message("user").markdown(f"Vous avez dit : *{voice_text}*")
-        st.session_state.messages.append({"role":"user","content":voice_text})
-
-        with st.chat_message("assistant"):
-            placeholder = st.empty()
-            full_response = ""
-            sys_msg = get_system_prompt(st.session_state.mode)
-            if st.session_state.has_greeted: sys_msg += "\nNe fais plus de salutations."
-            else: st.session_state.has_greeted = True
-
-            messages_api = [{"role": "system", "content": sys_msg}]
-            for m in st.session_state.messages[-5:]: messages_api.append(m)
-
-            try:
-                stream = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=messages_api,
-                    stream=True,
-                    temperature=0.1
-                )
-                for chunk in stream:
-                    if chunk.choices[0].delta.content:
-                        full_response += chunk.choices[0].delta.content
-                        placeholder.markdown(full_response + "▌")
-                placeholder.markdown(full_response)
-
-                if "Désolé" not in full_response:
-                    st.audio(text_to_speech(full_response), format="audio/mp3")
-
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-            except Exception as e:
-                st.error(f"Erreur IA : {e}")
-
-    except Exception as e:
-        st.error(f"Erreur audio : {e}")
-
-# -----------------------
-# CHAT INPUT NORMAL
-# -----------------------
 prompt = st.chat_input("Posez votre question académique...")
 if prompt:
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
-
+    
     with st.chat_message("assistant"):
         placeholder = st.empty()
         full_response = ""
+        
         sys_msg = get_system_prompt(st.session_state.mode)
         if st.session_state.has_greeted: sys_msg += "\nNe fais plus de salutations."
         else: st.session_state.has_greeted = True
-
+        
         messages_api = [{"role": "system", "content": sys_msg}]
+        # On ne garde que les 5 derniers messages pour éviter que l'IA ne se laisse influencer par du bavardage passé
         for m in st.session_state.messages[-5:]: messages_api.append(m)
-
+        
         try:
             stream = client.chat.completions.create(
                 model="llama-3.3-70b-versatile", 
                 messages=messages_api, 
                 stream=True,
-                temperature=0.1
+                temperature=0.1 # On baisse la température pour que l'IA soit plus "sérieuse" et obéissante
             )
             for chunk in stream:
                 if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
                     placeholder.markdown(full_response + "▌")
             placeholder.markdown(full_response)
-
+            
+            # Ne génère l'audio que si ce n'est pas le message de refus
             if "Désolé" not in full_response:
                 st.audio(text_to_speech(full_response), format="audio/mp3")
                 
@@ -263,8 +156,5 @@ if prompt:
         except Exception as e:
             st.error(f"Erreur : {e}")
 
-# -----------------------
-# FOOTER
-# -----------------------
 st.markdown("---")
 st.markdown("<p style='text-align: center;'>Propulsé par l'IA pour l'UPL | Développé par <b>Julien Banze Kandolo</b> 🚀</p>", unsafe_allow_html=True)
