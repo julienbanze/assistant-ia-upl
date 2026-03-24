@@ -161,7 +161,7 @@ with col2:
 st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------
-# CONVERSION VOIX ➜ TEXTE
+# CONVERSION VOIX ➜ TEXTE + ENVOI AUTOMATIQUE À L'IA
 # -----------------------
 if audio:
     with open("voice.wav", "wb") as f:
@@ -173,17 +173,51 @@ if audio:
         )
         voice_text = transcription.text
 
-        # Affichage dans le chat
         st.chat_message("user").markdown(voice_text)
         st.session_state.messages.append({"role":"user","content":voice_text})
 
-        # 🔥 On force le prompt de l'IA
-        prompt = voice_text
+        # Envoi automatique à l'IA
+        with st.chat_message("assistant"):
+            placeholder = st.empty()
+            full_response = ""
+
+            sys_msg = get_system_prompt(st.session_state.mode)
+            if st.session_state.has_greeted:
+                sys_msg += "\nNe fais plus de salutations."
+            else:
+                st.session_state.has_greeted = True
+
+            messages_api = [{"role": "system", "content": sys_msg}]
+            for m in st.session_state.messages[-5:]:
+                messages_api.append(m)
+
+            try:
+                stream = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=messages_api,
+                    stream=True,
+                    temperature=0.1
+                )
+
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        full_response += chunk.choices[0].delta.content
+                        placeholder.markdown(full_response + "▌")
+                placeholder.markdown(full_response)
+
+                if "Désolé" not in full_response:
+                    st.audio(text_to_speech(full_response), format="audio/mp3")
+
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+            except Exception as e:
+                st.error(f"Erreur IA : {e}")
+
     except Exception as e:
         st.error(f"Erreur audio : {e}")
 
 # -----------------------
-# CHAT INPUT
+# CHAT INPUT NORMAL
 # -----------------------
 prompt = st.chat_input("Posez votre question académique...")
 if prompt:
