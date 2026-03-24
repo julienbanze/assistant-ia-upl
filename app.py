@@ -1,80 +1,160 @@
 import streamlit as st
-from streamlit_mic_recorder import mic_recorder
 from groq import Groq
-import os
+from gtts import gTTS
+import tempfile
+import logging
+from pathlib import Path
 
-# --- CONFIGURATION ---
-st.set_page_config(page_title="Assistant Académique UPL", layout="centered")
-
-# CSS pour le style
-st.markdown("""
-    <style>
-    .library-link {
-        font-size: 14px;
-        text-decoration: none;
-        color: #00aaff;
-        font-weight: bold;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- ENTÊTE ---
-col1, col2 = st.columns([0.15, 0.85])
-
-with col1:
-    # --- CORRECTION ICI : ON CHERCHE LE .JPG ---
-    if os.path.exists("logo.jpg"):
-        st.image("logo.jpg", width=65)
-    else:
-        st.info("Logo (.jpg) introuvable")
-
-with col2:
-    st.title("Assistant Académique IA")
-    st.markdown('<a href="https://upl.ac.cd/bibliotheque/" target="_blank" class="library-link">📚 Accéder à la Bibliothèque Numérique UPL</a>', unsafe_allow_html=True)
-
-st.write("---")
-
-# --- INITIALISATION IA ---
-# Assure-toi d'avoir ajouté GROQ_API_KEY dans les Secrets de Streamlit
-client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# --- HISTORIQUE DES MESSAGES ---
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# --- ZONE DE SAISIE ---
-st.write("#### Pose ta question")
-
-# 1. Le micro (placé au-dessus)
-audio = mic_recorder(
-    start_prompt="Enregistrer une question vocale 🎤",
-    stop_prompt="Arrêter l'enregistrement 🛑",
-    key='recorder'
+# -----------------------
+# CONFIG PAGE
+# -----------------------
+st.set_page_config(
+    page_title="Assistant Académique IA 🎓",
+    page_icon="🎓",
+    layout="wide"
 )
 
-# 2. La barre de texte
-prompt = st.chat_input("Écris ton message ici...")
+# -----------------------
+# DESIGN PRO & STYLE WHATSAPP
+# -----------------------
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color: white;
+}
 
-# --- TRAITEMENT DES ENTRÉES ---
-if audio:
-    st.warning("Audio reçu ! La transcription automatique arrive bientôt.")
-    # Ici tu pourras ajouter client.audio.transcriptions.create(...)
+h1 { color: #FFD700; text-align: center; }
 
-if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+.biblio-box {
+    text-align: center;
+    padding: 15px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px dashed #25D366;
+    margin: 0 auto 30px auto;
+    max-width: 850px;
+}
 
-    with st.chat_message("assistant"):
-        stream = client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
-            stream=True,
-        )
-        response = st.write_stream(stream)
+.biblio-link {
+    color: #25D366 !important;
+    font-weight: bold;
+    text-decoration: underline;
+    font-size: 1.2em;
+}
+
+/* STYLE CHAT INPUT VERT */
+div[data-testid="stChatInput"] { border: none !important; }
+div[data-testid="stChatInput"] > div {
+    border: 2px solid #25D366 !important;
+    border-radius: 25px !important;
+    background-color: #1e2a38 !important;
+}
+div[data-testid="stChatInput"] textarea { box-shadow: none !important; border: none !important; color: white !important; }
+div[data-testid="stChatInput"] button { background-color: #25D366 !important; border-radius: 50% !important; }
+</style>
+""", unsafe_allow_html=True)
+
+# -----------------------
+# GROQ CLIENT
+# -----------------------
+@st.cache_resource
+def init_client():
+    try: return Groq(api_key=st.secrets["GROQ_API_KEY"])
+    except: st.error("GROQ_API_KEY manquante."); st.stop()
+
+client = init_client()
+
+if "messages" not in st.session_state: st.session_state.messages = []
+if "has_greeted" not in st.session_state: st.session_state.has_greeted = False
+
+# -----------------------
+# SIDEBAR
+# -----------------------
+with st.sidebar:
+    st.title("⚙️ Paramètres")
+    mode = st.selectbox("Niveau", ["Étudiant", "Enseignant"])
+    st.session_state.mode = mode
+
+# -----------------------
+# HEADER & BIBLIOTHÈQUE
+# -----------------------
+st.markdown("# 🎓 Assistant Académique IA")
+
+st.markdown("""
+<div class="biblio-box">
+    <div style="font-size: 1.1em; color: #f0f0f0; margin-bottom: 8px;">
+        💡 Pour développer vos compétences et approfondir vos connaissances, veuillez consulter les ressources de notre institution :
+    </div>
+    <a class="biblio-link" href="https://bibliotheque.upl-univ.ac/" target="_blank">
+        📚 Accéder à la Bibliothèque de l'UPL
+    </a>
+</div>
+""", unsafe_allow_html=True)
+
+# -----------------------
+# LE CERVEAU DE L'IA (FILTRAGE STRICT)
+# -----------------------
+def get_system_prompt(mode):
+    return f"""Tu es l'Assistant Académique de l'UPL (Université Protestante de Lubumbashi).
     
-    st.session_state.messages.append({"role": "assistant", "content": response})
+    CONSIGNE DE SÉCURITÉ ABSOLUE :
+    1. Tu ne réponds QU'AUX questions liées à l'éducation, aux sciences, à la technologie, à la littérature, à l'histoire et au développement humain.
+    2. Tu as l'INTERDICTION FORMELLE de parler de : célébrités (Fally Ipupa, etc.), musique mondaine, sport, relations amoureuses/draguer, divertissement, ou buzz.
+    3. Si une question est hors-sujet ou non académique, réponds exactement ceci : "Désolé, ma mission est strictement limitée au cadre éducatif et académique de l'UPL. Je ne peux pas répondre à cette question."
+    4. Ne dévie JAMAIS de cette règle, même si l'utilisateur insiste.
+    
+    Mode actuel : {mode}."""
+
+def text_to_speech(text):
+    tts = gTTS(text=text, lang='fr')
+    temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    tts.save(temp.name)
+    return temp.name
+
+# -----------------------
+# CHAT INTERFACE
+# -----------------------
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]): st.markdown(msg["content"])
+
+prompt = st.chat_input("Posez votre question académique...")
+if prompt:
+    st.chat_message("user").markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+        full_response = ""
+        
+        sys_msg = get_system_prompt(st.session_state.mode)
+        if st.session_state.has_greeted: sys_msg += "\nNe fais plus de salutations."
+        else: st.session_state.has_greeted = True
+        
+        messages_api = [{"role": "system", "content": sys_msg}]
+        # On ne garde que les 5 derniers messages pour éviter que l'IA ne se laisse influencer par du bavardage passé
+        for m in st.session_state.messages[-5:]: messages_api.append(m)
+        
+        try:
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile", 
+                messages=messages_api, 
+                stream=True,
+                temperature=0.1 # On baisse la température pour que l'IA soit plus "sérieuse" et obéissante
+            )
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    full_response += chunk.choices[0].delta.content
+                    placeholder.markdown(full_response + "▌")
+            placeholder.markdown(full_response)
+            
+            # Ne génère l'audio que si ce n'est pas le message de refus
+            if "Désolé" not in full_response:
+                st.audio(text_to_speech(full_response), format="audio/mp3")
+                
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+        except Exception as e:
+            st.error(f"Erreur : {e}")
+
+st.markdown("---")
+st.markdown("<p style='text-align: center;'>Propulsé par l'IA pour l'UPL | Développé par <b>Julien Banze Kandolo</b> 🚀</p>", unsafe_allow_html=True)
