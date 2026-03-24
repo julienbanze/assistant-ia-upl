@@ -9,13 +9,13 @@ from pathlib import Path
 # CONFIG PAGE
 # -----------------------
 st.set_page_config(
-    page_title="Assistant Académique IA 🎓",
-    page_icon="🎓",
+    page_title="Assistant Académique IA",
+    page_icon="logo.png",  # 👈 Logo comme icône
     layout="wide"
 )
 
 # -----------------------
-# DESIGN PRO & STYLE WHATSAPP
+# DESIGN PRO
 # -----------------------
 st.markdown("""
 <style>
@@ -43,15 +43,20 @@ h1 { color: #FFD700; text-align: center; }
     font-size: 1.2em;
 }
 
-/* STYLE CHAT INPUT VERT */
-div[data-testid="stChatInput"] { border: none !important; }
+/* CHAT STYLE */
 div[data-testid="stChatInput"] > div {
     border: 2px solid #25D366 !important;
     border-radius: 25px !important;
     background-color: #1e2a38 !important;
 }
-div[data-testid="stChatInput"] textarea { box-shadow: none !important; border: none !important; color: white !important; }
-div[data-testid="stChatInput"] button { background-color: #25D366 !important; border-radius: 50% !important; }
+div[data-testid="stChatInput"] textarea {
+    border: none !important;
+    color: white !important;
+}
+div[data-testid="stChatInput"] button {
+    background-color: #25D366 !important;
+    border-radius: 50% !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -60,27 +65,40 @@ div[data-testid="stChatInput"] button { background-color: #25D366 !important; bo
 # -----------------------
 @st.cache_resource
 def init_client():
-    try: return Groq(api_key=st.secrets["GROQ_API_KEY"])
-    except: st.error("GROQ_API_KEY manquante."); st.stop()
+    try:
+        return Groq(api_key=st.secrets["GROQ_API_KEY"])
+    except:
+        st.error("GROQ_API_KEY manquante.")
+        st.stop()
 
 client = init_client()
 
-if "messages" not in st.session_state: st.session_state.messages = []
-if "has_greeted" not in st.session_state: st.session_state.has_greeted = False
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "has_greeted" not in st.session_state:
+    st.session_state.has_greeted = False
 
 # -----------------------
 # SIDEBAR
 # -----------------------
 with st.sidebar:
+    st.image("logo.png", width=120)  # 👈 Logo sidebar
     st.title("⚙️ Paramètres")
     mode = st.selectbox("Niveau", ["Étudiant", "Enseignant"])
     st.session_state.mode = mode
 
 # -----------------------
-# HEADER & BIBLIOTHÈQUE
+# HEADER AVEC LOGO CENTRÉ
 # -----------------------
+col1, col2, col3 = st.columns([1,2,1])
+with col2:
+    st.image("logo.png", width=140)
+
 st.markdown("# 🎓 Assistant Académique IA")
 
+# -----------------------
+# BIBLIOTHÈQUE
+# -----------------------
 st.markdown("""
 <div class="biblio-box">
     <div style="font-size: 1.1em; color: #f0f0f0; margin-bottom: 8px;">
@@ -93,16 +111,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------
-# LE CERVEAU DE L'IA (FILTRAGE STRICT)
+# SYSTEM PROMPT
 # -----------------------
 def get_system_prompt(mode):
     return f"""Tu es l'Assistant Académique de l'UPL (Université Protestante de Lubumbashi).
     
-    CONSIGNE DE SÉCURITÉ ABSOLUE :
-    1. Tu ne réponds QU'AUX questions liées à l'éducation, aux sciences, à la technologie, à la littérature, à l'histoire et au développement humain.
-    2. Tu as l'INTERDICTION FORMELLE de parler de : célébrités (Fally Ipupa, etc.), musique mondaine, sport, relations amoureuses/draguer, divertissement, ou buzz.
-    3. Si une question est hors-sujet ou non académique, réponds exactement ceci : "Désolé, ma mission est strictement limitée au cadre éducatif et académique de l'UPL. Je ne peux pas répondre à cette question."
-    4. Ne dévie JAMAIS de cette règle, même si l'utilisateur insiste.
+    CONSIGNE :
+    1. Réponds uniquement aux sujets académiques.
+    2. Refuse les sujets hors cadre.
     
     Mode actuel : {mode}."""
 
@@ -113,10 +129,11 @@ def text_to_speech(text):
     return temp.name
 
 # -----------------------
-# CHAT INTERFACE
+# CHAT
 # -----------------------
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]): st.markdown(msg["content"])
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
 prompt = st.chat_input("Posez votre question académique...")
 if prompt:
@@ -128,19 +145,17 @@ if prompt:
         full_response = ""
         
         sys_msg = get_system_prompt(st.session_state.mode)
-        if st.session_state.has_greeted: sys_msg += "\nNe fais plus de salutations."
-        else: st.session_state.has_greeted = True
         
         messages_api = [{"role": "system", "content": sys_msg}]
-        # On ne garde que les 5 derniers messages pour éviter que l'IA ne se laisse influencer par du bavardage passé
-        for m in st.session_state.messages[-5:]: messages_api.append(m)
+        for m in st.session_state.messages[-5:]:
+            messages_api.append(m)
         
         try:
             stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile", 
-                messages=messages_api, 
+                model="llama-3.3-70b-versatile",
+                messages=messages_api,
                 stream=True,
-                temperature=0.1 # On baisse la température pour que l'IA soit plus "sérieuse" et obéissante
+                temperature=0.1
             )
             for chunk in stream:
                 if chunk.choices[0].delta.content:
@@ -148,13 +163,19 @@ if prompt:
                     placeholder.markdown(full_response + "▌")
             placeholder.markdown(full_response)
             
-            # Ne génère l'audio que si ce n'est pas le message de refus
             if "Désolé" not in full_response:
                 st.audio(text_to_speech(full_response), format="audio/mp3")
                 
             st.session_state.messages.append({"role": "assistant", "content": full_response})
+        
         except Exception as e:
             st.error(f"Erreur : {e}")
 
+# -----------------------
+# FOOTER
+# -----------------------
 st.markdown("---")
-st.markdown("<p style='text-align: center;'>Propulsé par l'IA pour l'UPL | Développé par <b>Julien Banze Kandolo</b> 🚀</p>", unsafe_allow_html=True)
+st.markdown(
+    "<p style='text-align: center;'>Propulsé par l'IA pour l'UPL | Développé par <b>Julien Banze Kandolo</b> 🚀</p>",
+    unsafe_allow_html=True
+)
