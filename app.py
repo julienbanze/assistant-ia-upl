@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # -----------------------
-# STYLE PRO WHATSAPP + BOUTON MICRO MODERNE
+# STYLE PRO WHATSAPP + BOUTON MICRO
 # -----------------------
 st.markdown("""
 <style>
@@ -65,9 +65,10 @@ div[data-testid="stChatInput"] button {
     margin-top: -10px;
 }
 
-/* Bouton micro moderne */
+/* Bouton micro pro */
 .mic-button {
-    background-color: #25D366; /* vert style WhatsApp */
+    background-color: #25D366;
+    border: none;
     border-radius: 50%;
     width: 50px;
     height: 50px;
@@ -78,19 +79,15 @@ div[data-testid="stChatInput"] button {
     font-size: 24px;
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.15s;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
 }
-
 .mic-button:hover {
     transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+    box-shadow: 0 5px 12px rgba(0,0,0,0.4);
 }
 
-/* Icône SVG micro */
-.mic-icon {
-    width: 24px;
-    height: 24px;
-}
+/* SVG micro */
+.mic-icon { width: 24px; height: 24px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -122,7 +119,6 @@ with st.sidebar:
 # HEADER & BIBLIOTHÈQUE
 # -----------------------
 st.markdown("# 🎓 Assistant Académique IA")
-
 st.markdown("""
 <div class="biblio-box">
     <div style="font-size: 1.1em; color: #f0f0f0; margin-bottom: 8px;">
@@ -160,13 +156,12 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
 
 # -----------------------
-# 🎤 MICRO DANS LA BARRE + VOIX → TEXTE → IA
+# MICRO DANS LA BARRE + VOIX → TEXTE → IA
 # -----------------------
 st.markdown('<div class="voice-bar">', unsafe_allow_html=True)
 col1, col2 = st.columns([8,1])
 
 with col2:
-    # Bouton micro stylé avec icône SVG
     audio = mic_recorder(
         start_prompt="""
         <div class="mic-button">
@@ -194,24 +189,18 @@ if audio:
         )
         voice_text = transcription.text
 
-        # Répéter la question en français
         st.chat_message("user").markdown(f"Vous avez dit : *{voice_text}*")
         st.session_state.messages.append({"role":"user","content":voice_text})
 
-        # Envoi automatique à l'IA
         with st.chat_message("assistant"):
             placeholder = st.empty()
             full_response = ""
-
             sys_msg = get_system_prompt(st.session_state.mode)
-            if st.session_state.has_greeted:
-                sys_msg += "\nNe fais plus de salutations."
-            else:
-                st.session_state.has_greeted = True
+            if st.session_state.has_greeted: sys_msg += "\nNe fais plus de salutations."
+            else: st.session_state.has_greeted = True
 
             messages_api = [{"role": "system", "content": sys_msg}]
-            for m in st.session_state.messages[-5:]:
-                messages_api.append(m)
+            for m in st.session_state.messages[-5:]: messages_api.append(m)
 
             try:
                 stream = client.chat.completions.create(
@@ -220,7 +209,6 @@ if audio:
                     stream=True,
                     temperature=0.1
                 )
-
                 for chunk in stream:
                     if chunk.choices[0].delta.content:
                         full_response += chunk.choices[0].delta.content
@@ -231,7 +219,6 @@ if audio:
                     st.audio(text_to_speech(full_response), format="audio/mp3")
 
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
-
             except Exception as e:
                 st.error(f"Erreur IA : {e}")
 
@@ -249,14 +236,13 @@ if prompt:
     with st.chat_message("assistant"):
         placeholder = st.empty()
         full_response = ""
-        
-        sys_msg = get_system_prompt(st.session_state.has_greeted)
+        sys_msg = get_system_prompt(st.session_state.mode)
         if st.session_state.has_greeted: sys_msg += "\nNe fais plus de salutations."
         else: st.session_state.has_greeted = True
-        
+
         messages_api = [{"role": "system", "content": sys_msg}]
         for m in st.session_state.messages[-5:]: messages_api.append(m)
-        
+
         try:
             stream = client.chat.completions.create(
                 model="llama-3.3-70b-versatile", 
@@ -269,7 +255,7 @@ if prompt:
                     full_response += chunk.choices[0].delta.content
                     placeholder.markdown(full_response + "▌")
             placeholder.markdown(full_response)
-            
+
             if "Désolé" not in full_response:
                 st.audio(text_to_speech(full_response), format="audio/mp3")
                 
