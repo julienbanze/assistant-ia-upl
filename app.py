@@ -65,8 +65,9 @@ div[data-testid="stChatInput"] button {
     margin-top: -10px;
 }
 
+/* Bouton micro moderne */
 .mic-button {
-    background: linear-gradient(135deg, #00C853, #25D366);
+    background-color: #25D366; /* vert style WhatsApp */
     border-radius: 50%;
     width: 50px;
     height: 50px;
@@ -75,14 +76,20 @@ div[data-testid="stChatInput"] button {
     align-items: center;
     color: white;
     font-size: 24px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
 }
 
 .mic-button:hover {
     transform: scale(1.1);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+}
+
+/* Icône SVG micro */
+.mic-icon {
+    width: 24px;
+    height: 24px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -159,8 +166,18 @@ st.markdown('<div class="voice-bar">', unsafe_allow_html=True)
 col1, col2 = st.columns([8,1])
 
 with col2:
+    # Bouton micro stylé avec icône SVG
     audio = mic_recorder(
-        start_prompt="",
+        start_prompt="""
+        <div class="mic-button">
+            <svg class="mic-icon" xmlns="http://www.w3.org/2000/svg" fill="white" viewBox="0 0 24 24">
+                <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/>
+                <path d="M19 11v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 18 0v-2h-2z"/>
+                <path d="M12 17v4"/>
+                <path d="M8 21h8"/>
+            </svg>
+        </div>
+        """,
         stop_prompt="",
         just_once=True,
         use_container_width=True
@@ -233,7 +250,7 @@ if prompt:
         placeholder = st.empty()
         full_response = ""
         
-        sys_msg = get_system_prompt(st.session_state.mode)
+        sys_msg = get_system_prompt(st.session_state.has_greeted)
         if st.session_state.has_greeted: sys_msg += "\nNe fais plus de salutations."
         else: st.session_state.has_greeted = True
         
